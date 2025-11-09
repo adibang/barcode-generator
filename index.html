@@ -250,12 +250,12 @@
     function formatBarcodeData() {
       const formattedId = idValue.padStart(6, '0');
       const formattedWeight = weightValue.padStart(4, '0');
-      return `20${formattedId}${formattedWeight}0`;
+      return `00${formattedId}${formattedWeight}0`;
     }
     
     function updateDisplay() {
       document.getElementById('current-id').textContent = idValue.padStart(6, '0');
-      document.getElementById('current-weight').textContent = weightValue.padStart(5, '0');
+      document.getElementById('current-weight').textContent = weightValue.padStart(4, '0');
       document.getElementById('current-barcode').textContent = formatBarcodeData();
     }
     
