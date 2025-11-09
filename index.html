@@ -139,7 +139,7 @@
     .backspace-btn:active {
       background: #a93226;
     }
-    /* ... style sebelumnya tetap sama ... */
+
     .zero-btn {
       grid-column: span 1;
     }
@@ -166,6 +166,7 @@
     <div class="function-row">
       <button class="function-btn" onclick="clearInput()">CLEAR</button>
       <button class="function-btn" onclick="generate()">ENTER</button>
+      <button class="function-btn" onclick="connectToPrinter()">CONNECT</button>
     </div>
     
     <div class="buttons">
@@ -184,7 +185,7 @@
       <button onclick="appendNumber('0')" class="zero-btn">0</button>
       <button onclick="appendNumber('00')">00</button>
       
-      <button class="print-btn function-btn" onclick="connectAndPrint()">PRINT</button>
+      <button class="print-btn function-btn" onclick="printBarcode()">PRINT</button>
     </div>
     
     <svg id="barcode"></svg>
@@ -193,184 +194,229 @@
   <div id="notification"></div>
 
   <script>
-    // Deklarasi variabel (diperbaiki: hanya satu deklarasi)
-  // Global variables
-  let currentInputMode = 'id';
-  let idValue = '';
-  let weightValue = '';
-  let bluetoothDevice = null;
-  let bluetoothCharacteristic = null;
-  
-  // Input handling functions
-  function setInputMode(mode) {
-    currentInputMode = mode;
-    // Update visual indicator
-    document.getElementById('id-btn').classList.toggle('active-mode', mode === 'id');
-    document.getElementById('weight-btn').classList.toggle('active-mode', mode === 'weight');
-  }
-  
-  function appendNumber(num) {
-    if (currentInputMode === 'id') {
-      if (num === '00') {
-        if (idValue.length <= 4) {
+    // Global variables
+    let currentInputMode = 'id';
+    let idValue = '';
+    let weightValue = '';
+    let port = null;
+    let writer = null;
+    
+    // Input handling functions
+    function setInputMode(mode) {
+      currentInputMode = mode;
+      // Update visual indicator
+      document.getElementById('id-btn').classList.toggle('active-mode', mode === 'id');
+      document.getElementById('weight-btn').classList.toggle('active-mode', mode === 'weight');
+    }
+    
+    function appendNumber(num) {
+      if (currentInputMode === 'id') {
+        if (num === '00') {
+          if (idValue.length <= 4) {
+            idValue += num;
+          }
+        } else if (idValue.length < 6) {
           idValue += num;
         }
-      } else if (idValue.length < 6) {
-        idValue += num;
-      }
-    } else if (currentInputMode === 'weight') {
-      if (num === '00') {
-        if (weightValue.length <= 3) {
+      } else if (currentInputMode === 'weight') {
+        if (num === '00') {
+          if (weightValue.length <= 3) {
+            weightValue += num;
+          }
+        } else if (weightValue.length < 5) {
           weightValue += num;
         }
-      } else if (weightValue.length < 5) {
-        weightValue += num;
       }
+      updateDisplay();
     }
-    updateDisplay();
-  }
-  
-  function backspace() {
-    if (currentInputMode === 'id' && idValue.length > 0) {
-      idValue = idValue.slice(0, -1);
-    } else if (currentInputMode === 'weight' && weightValue.length > 0) {
-      weightValue = weightValue.slice(0, -1);
-    }
-    updateDisplay();
-  }
-  
-  function clearInput() {
-    idValue = '';
-    weightValue = '';
-    updateDisplay();
-    JsBarcode("#barcode", "", { displayValue: false });
-  }
-  
-  // Display and formatting functions
-  function formatBarcodeData() {
-    const formattedId = idValue.padStart(6, '0');
-    const formattedWeight = weightValue.padStart(5, '0');
-    return `0${formattedId}${formattedWeight}0`;
-  }
-  
-  function updateDisplay() {
-    document.getElementById('current-id').textContent = idValue.padStart(6, '0');
-    document.getElementById('current-weight').textContent = weightValue.padStart(5, '0');
-    document.getElementById('current-barcode').textContent = formatBarcodeData();
-  }
-  
-  function generate() {
-    const barcodeData = formatBarcodeData();
-    JsBarcode("#barcode", barcodeData, {
-      format: "CODE128",
-      displayValue: true,
-      fontSize: 16,
-      height: 50,
-      margin: 10
-    });
-  }
-  
-  // Printer communication functions
-  function formatPrintData() {
-    const barcodeData = formatBarcodeData();
-    const formattedId = idValue.padStart(6, '0');
-    const formattedWeight = weightValue.padStart(5, '0');
-  
-    const ESC = 0x1B;
-    const GS = 0x1D;
     
-    const commands = [
-      ESC, 0x40,  // Initialize printer
-      ESC, 0x61, 0x01,  // Center alignment
-      
-      `ID: ${formattedId}\n`,
-      `Berat: ${formattedWeight}\n`,
-      `Barcode: ${barcodeData}\n`,
-      
-      GS, 0x6B, 0x49,  // GS k I - Code128
-      barcodeData.length,  // Length of barcode data
-      ...barcodeData.split('').map(char => char.charCodeAt(0)),
-      
-      0x0A, 0x0A, 0x0A,  // Line feeds
-    ];
-  
-    return new Uint8Array(commands);
-  }
-  
-  async function connectToPrinter() {
-    try {
-      const PRINTER_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
-      const PRINTER_CHARACTERISTIC_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
-  
-      if (!bluetoothDevice || !bluetoothDevice.gatt.connected) {
-        bluetoothDevice = await navigator.bluetooth.requestDevice({
-          filters: [
-            { services: [PRINTER_SERVICE_UUID] }
-          ]
-        });
-  
-        bluetoothDevice.addEventListener('gattserverdisconnected', () => {
-          updateConnectionStatus(false);
-          bluetoothCharacteristic = null;
-        });
-  
-        const server = await bluetoothDevice.gatt.connect();
-        const service = await server.getPrimaryService(PRINTER_SERVICE_UUID);
-        bluetoothCharacteristic = await service.getCharacteristic(PRINTER_CHARACTERISTIC_UUID);
-        
-        updateConnectionStatus(true);
-        showNotification('Printer berhasil terkoneksi');
-        return true;
+    function backspace() {
+      if (currentInputMode === 'id' && idValue.length > 0) {
+        idValue = idValue.slice(0, -1);
+      } else if (currentInputMode === 'weight' && weightValue.length > 0) {
+        weightValue = weightValue.slice(0, -1);
       }
-      return true;
-    } catch (error) {
-      console.error('Error connecting to printer:', error);
-      showNotification('Gagal terkoneksi ke printer: ' + error.message);
-      updateConnectionStatus(false);
-      return false;
+      updateDisplay();
     }
-  }
-  
-  async function connectAndPrint() {
-    try {
-      if (!idValue || !weightValue) {
-        showNotification('Harap isi ID dan BERAT terlebih dahulu');
+    
+    function clearInput() {
+      idValue = '';
+      weightValue = '';
+      updateDisplay();
+      JsBarcode("#barcode", "", { displayValue: false });
+    }
+    
+    // Display and formatting functions
+    function formatBarcodeData() {
+      const formattedId = idValue.padStart(6, '0');
+      const formattedWeight = weightValue.padStart(5, '0');
+      return `0${formattedId}${formattedWeight}0`;
+    }
+    
+    function updateDisplay() {
+      document.getElementById('current-id').textContent = idValue.padStart(6, '0');
+      document.getElementById('current-weight').textContent = weightValue.padStart(5, '0');
+      document.getElementById('current-barcode').textContent = formatBarcodeData();
+    }
+    
+    function generate() {
+      const barcodeData = formatBarcodeData();
+      if (barcodeData.length !== 13) {
+        showNotification('ID harus 6 digit dan Berat harus 5 digit');
         return;
       }
-  
-      const connected = await connectToPrinter();
-      if (!connected) return;
-  
-      const printData = formatPrintData();
-      await bluetoothCharacteristic.writeValue(printData);
       
-      showNotification('Data berhasil dikirim ke printer');
-    } catch (error) {
-      console.error('Error printing:', error);
-      showNotification('Gagal mencetak: ' + error.message);
+      JsBarcode("#barcode", barcodeData, {
+        format: "CODE128",
+        displayValue: true,
+        fontSize: 16,
+        height: 50,
+        margin: 10
+      });
+      
+      showNotification('Barcode berhasil digenerate');
     }
-  }
-  
-  // UI feedback functions
-  function updateConnectionStatus(connected) {
-    const status = document.getElementById('status');
-    if (connected) {
-      status.textContent = 'Printer: Terkoneksi';
-      status.className = 'status-connected';
-    } else {
-      status.textContent = 'Printer: Tidak Terkoneksi';
-      status.className = 'status-disconnected';
+    
+    // Printer communication functions - Web Serial API
+    async function connectToPrinter() {
+      try {
+        if (!("serial" in navigator)) {
+          showNotification("Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge.");
+          return false;
+        }
+
+        showNotification("Memilih printer...");
+        
+        // Request serial port
+        port = await navigator.serial.requestPort();
+        showNotification("Membuka koneksi...");
+        
+        // Open the port with baud rate 9600 (standard for many thermal printers)
+        await port.open({ baudRate: 9600 });
+        
+        // Get the writer
+        writer = port.writable.getWriter();
+        
+        updateConnectionStatus(true);
+        showNotification('Printer berhasil terhubung!');
+        return true;
+        
+      } catch (error) {
+        console.error("Connection error:", error);
+        if (error.name === 'NotFoundError') {
+          showNotification("Tidak ada printer yang dipilih");
+        } else {
+          showNotification("Gagal terhubung ke printer: " + error.message);
+        }
+        updateConnectionStatus(false);
+        return false;
+      }
     }
-  }
-  
-  function showNotification(message, duration = 3000) {
-    const notification = document.getElementById('notification');
-    notification.textContent = message;
-    notification.style.display = 'block';
-    setTimeout(() => {
-      notification.style.display = 'none';
-    }, duration);
-  }
+    
+    async function printBarcode() {
+      try {
+        if (!idValue || !weightValue) {
+          showNotification('Harap isi ID dan BERAT terlebih dahulu');
+          return;
+        }
+        
+        // Generate barcode if not already generated
+        const barcodeData = formatBarcodeData();
+        if (barcodeData.length !== 13) {
+          showNotification('ID harus 6 digit dan Berat harus 5 digit');
+          return;
+        }
+        
+        // Auto-generate barcode if not already done
+        if (document.querySelector('#barcode text').textContent !== barcodeData) {
+          generate();
+        }
+
+        if (!writer) {
+          showNotification('Printer belum terhubung. Klik tombol CONNECT dulu.');
+          return;
+        }
+
+        showNotification("Mengirim data ke printer...");
+        
+        // ESC/POS commands
+        const esc = '\x1B';
+        const gs = '\x1D';
+        const lf = '\x0A';
+        
+        // Initialize printer
+        let data = esc + '@';
+        
+        // Center alignment
+        data += esc + 'a' + '\x01';
+        
+        // Print title
+        data += 'BARCODE LABEL\n\n';
+        
+        // Print ID and Weight
+        data += 'ID: ' + idValue.padStart(6, '0') + lf;
+        data += 'BERAT: ' + weightValue.padStart(5, '0') + lf + lf;
+        
+        // Print barcode using ESC/POS native barcode commands
+        // Select barcode height
+        data += gs + 'h' + '\x50'; // Height = 80
+        // Select barcode width
+        data += gs + 'w' + '\x02'; // Width = 2
+        // Select CODE128 barcode
+        data += gs + 'k' + '\x49'; // CODE128
+        // Length of data
+        data += String.fromCharCode(barcodeData.length);
+        // Barcode data
+        data += barcodeData;
+        
+        data += lf + lf;
+        
+        // Add cut command (partial cut)
+        data += gs + 'V' + '\x41' + '\x00';
+        
+        // Encode and send data
+        const encoder = new TextEncoder();
+        const encodedData = encoder.encode(data);
+        
+        await writer.write(encodedData);
+        
+        showNotification('Data berhasil dikirim ke printer');
+      } catch (error) {
+        console.error("Print error:", error);
+        showNotification("Gagal mengirim ke printer: " + error.message);
+      }
+    }
+    
+    // UI feedback functions
+    function updateConnectionStatus(connected) {
+      const status = document.getElementById('status');
+      if (connected) {
+        status.textContent = 'Printer: Terkoneksi';
+        status.className = 'status-connected';
+      } else {
+        status.textContent = 'Printer: Tidak Terkoneksi';
+        status.className = 'status-disconnected';
+      }
+    }
+    
+    function showNotification(message, duration = 3000) {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.style.display = 'block';
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, duration);
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      updateDisplay();
+      
+      // Check Web Serial API support
+      if (!("serial" in navigator)) {
+        document.getElementById('status').textContent = 'Browser tidak mendukung Web Serial API';
+      }
+    });
   </script>
 </body>
 </html>
