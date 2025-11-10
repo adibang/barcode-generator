@@ -153,7 +153,7 @@
   <div class="calculator">
     <div id="display">
       <div>ID: <span id="current-id">000000</span></div>
-      <div>BERAT: <span id="current-weight">0000</span></div>
+      <div>BERAT: <span id="current-weight">00000</span></div>
       <div>BARCODE: <span id="current-barcode">0000000000000</span></div>
     </div>
     
@@ -223,7 +223,7 @@
           if (weightValue.length <= 2) {
             weightValue += num;
           }
-        } else if (weightValue.length < 4) {
+        } else if (weightValue.length < 5) {
           weightValue += num;
         }
       }
@@ -249,20 +249,20 @@
     // Display and formatting functions
     function formatBarcodeData() {
       const formattedId = idValue.padStart(6, '0');
-      const formattedWeight = weightValue.padStart(4, '0');
-      return `00${formattedId}${formattedWeight}0`;
+      const formattedWeight = weightValue.padStart(5, '0');
+      return `00${formattedId}${formattedWeight}`;
     }
     
     function updateDisplay() {
       document.getElementById('current-id').textContent = idValue.padStart(6, '0');
-      document.getElementById('current-weight').textContent = weightValue.padStart(4, '0');
+      document.getElementById('current-weight').textContent = weightValue.padStart(5, '0');
       document.getElementById('current-barcode').textContent = formatBarcodeData();
     }
     
     function generate() {
       const barcodeData = formatBarcodeData();
       if (barcodeData.length !== 13) {
-        showNotification('ID harus 6 digit dan Berat harus 4 digit');
+        showNotification('ID harus 6 digit dan Berat harus 5 digit');
         return;
       }
       
@@ -323,7 +323,7 @@
         // Generate barcode if not already generated
         const barcodeData = formatBarcodeData();
         if (barcodeData.length !== 13) {
-          showNotification('ID harus 6 digit dan Berat harus 4 digit');
+          showNotification('ID harus 6 digit dan Berat harus 5 digit');
           return;
         }
         
@@ -355,7 +355,7 @@
         
         // Print ID and Weight
         data += 'ID: ' + idValue.padStart(6, '0') + lf;
-        data += 'BERAT: ' + weightValue.padStart(4, '0') + lf + lf;
+        data += 'BERAT: ' + weightValue.padStart(5, '0') + lf + lf;
         
         // Print barcode using ESC/POS native barcode commands
         // Select barcode height
