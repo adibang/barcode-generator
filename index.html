@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Barcode Printer - Format Optimal</title>
+  <title>Barcode Printer - Format 3 Baris</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
     * {
@@ -105,28 +105,39 @@
       background: #27ae60 !important;
     }
 
-    /* Preview */
+    /* Preview format 3 baris */
     .preview {
       margin-top: 15px;
       background: white;
       border-radius: 5px;
       padding: 10px;
+      font-size: 12px;
     }
 
-    .barcode-preview {
-      text-align: center;
+    .preview-text-row {
+      display: flex;
+      justify-content: space-between;
       margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .barcode-container {
+      margin-bottom: 10px;
+    }
+
+    .barcode-container:last-child {
+      margin-bottom: 0;
+    }
+
+    .barcode-label {
+      font-size: 10px;
+      margin-bottom: 3px;
+      color: #555;
     }
 
     .barcode-preview svg {
       width: 100%;
-      max-height: 80px;
-    }
-
-    .text-preview {
-      font-size: 12px;
-      text-align: center;
-      color: #333;
+      height: 40px;
     }
 
     #status {
@@ -194,16 +205,26 @@
       <button onclick="appendNumber('00')">00</button>
       <button class="decimal-btn" onclick="appendDecimal()">.</button>
       
-      <button class="print-btn function-btn" onclick="printBarcode()">CETAK</button>
+      <button class="print-btn function-btn" onclick="printThreeLine()">CETAK 3 BARIS</button>
     </div>
 
-    <!-- Preview -->
+    <!-- Preview format 3 baris -->
     <div class="preview">
-      <div class="barcode-preview">
-        <svg id="barcode-main"></svg>
+      <div class="preview-text-row">
+        <span>Kode: <span id="preview-kode">000000</span></span>
+        <span>Berat: <span id="preview-berat">0</span>g</span>
       </div>
-      <div class="text-preview">
-        <div>Kode: <span id="kode-text">000000</span> | Berat: <span id="berat-text">0</span>g</div>
+      <div class="barcode-container">
+        <div class="barcode-label">Barcode Kode</div>
+        <div class="barcode-preview">
+          <svg id="barcode-kode"></svg>
+        </div>
+      </div>
+      <div class="barcode-container">
+        <div class="barcode-label">Barcode Berat</div>
+        <div class="barcode-preview">
+          <svg id="barcode-berat"></svg>
+        </div>
       </div>
     </div>
 
@@ -274,15 +295,18 @@
       kodeValue = '';
       beratValue = '';
       generated = false;
-      document.getElementById('barcode-main').innerHTML = '';
-      document.getElementById('kode-text').textContent = '000000';
-      document.getElementById('berat-text').textContent = '0';
+      document.getElementById('barcode-kode').innerHTML = '';
+      document.getElementById('barcode-berat').innerHTML = '';
+      document.getElementById('preview-kode').textContent = '000000';
+      document.getElementById('preview-berat').textContent = '0';
       updateDisplay();
     }
     
     function updateDisplay() {
       document.getElementById('current-id').textContent = kodeValue || '000000';
       document.getElementById('current-weight').textContent = beratValue || '0';
+      document.getElementById('preview-kode').textContent = kodeValue || '000000';
+      document.getElementById('preview-berat').textContent = beratValue || '0';
     }
     
     function generate() {
@@ -291,12 +315,12 @@
         return;
       }
 
-      // Generate barcode utama untuk kode
+      // Generate barcode KODE
       try {
-        JsBarcode("#barcode-main", kodeValue, {
+        JsBarcode("#barcode-kode", kodeValue, {
           format: "CODE128",
           displayValue: false,
-          height: 60,
+          height: 40,
           margin: 0,
           fontSize: 0
         });
@@ -311,9 +335,19 @@
         return;
       }
       
-      // Update teks preview
-      document.getElementById('kode-text').textContent = kodeValue;
-      document.getElementById('berat-text').textContent = beratValue;
+      // Generate barcode BERAT
+      try {
+        JsBarcode("#barcode-berat", beratValue, {
+          format: "CODE128",
+          displayValue: false,
+          height: 40,
+          margin: 0,
+          fontSize: 0
+        });
+      } catch (e) {
+        showNotification('Berat tidak valid untuk barcode');
+        return;
+      }
 
       generated = true;
       showNotification('Barcode berhasil digenerate');
@@ -346,7 +380,7 @@
       }
     }
     
-    async function printBarcode() {
+    async function printThreeLine() {
       if (!generated) {
         showNotification('Harap klik GENERATE dulu');
         return;
@@ -357,7 +391,7 @@
       }
 
       try {
-        showNotification("Mencetak...");
+        showNotification("Mencetak format 3 baris...");
 
         const encoder = new TextEncoder();
         let commands = [];
@@ -365,36 +399,56 @@
         // 1. Reset printer
         commands.push(0x1B, 0x40); // ESC @
         
-        // 2. Set line spacing normal
-        commands.push(0x1B, 0x33, 0x20); // Line spacing = 32 dots
+        // 2. Set line spacing rapat
+        commands.push(0x1B, 0x33, 0x10); // Line spacing = 16 dots
         
-        // 3. Baris 1: Barcode besar untuk kode (center)
-        commands.push(0x1B, 0x61, 0x01); // Center alignment
+        // 3. Baris 1: Teks kode dan berat sejajar
+        // Kode di kiri, berat di kanan
+        commands.push(0x1B, 0x61, 0x00); // Left alignment
+        
+        // Cetak kode di kiri
+        const kodeText = encoder.encode("Kode: " + kodeValue + " ");
+        commands = commands.concat(Array.from(kodeText));
+        
+        // Pindah ke kanan untuk berat
+        // Untuk printer 58mm, gunakan tabs
+        commands.push(0x1B, 0x44); // Set horizontal tabs
+        commands.push(0x28, 0x00); // Tab pada posisi 40 (0x28)
+        commands.push(0x00); // End of list
+        commands.push(0x09); // Tab
+        
+        const beratText = encoder.encode("Berat: " + beratValue + "g\n");
+        commands = commands.concat(Array.from(beratText));
+        
+        // Reset tabs
+        commands.push(0x1B, 0x44, 0x00);
+        
+        // 4. Baris 2: Barcode untuk kode
+        commands.push(0x1B, 0x61, 0x01); // Center alignment untuk barcode
         
         const GS = 0x1D;
-        let barcodeCmd = [];
-        barcodeCmd.push(GS, 0x68, 0x60); // Height = 96 dots (besar)
-        barcodeCmd.push(GS, 0x77, 0x02); // Width = 2 (normal)
-        barcodeCmd.push(GS, 0x6B, 0x49); // CODE128
-        barcodeCmd.push(kodeValue.length); // Data length
+        let barcodeKode = [];
+        barcodeKode.push(GS, 0x68, 0x40); // Height = 64 dots
+        barcodeKode.push(GS, 0x77, 0x02); // Width = 2
+        barcodeKode.push(GS, 0x6B, 0x49); // CODE128
+        barcodeKode.push(kodeValue.length); // Data length
         
         const kodeBytes = encoder.encode(kodeValue);
-        barcodeCmd = barcodeCmd.concat(Array.from(kodeBytes));
-        commands = commands.concat(barcodeCmd);
+        barcodeKode = barcodeKode.concat(Array.from(kodeBytes));
+        commands = commands.concat(barcodeKode);
         
-        // 4. Baris 2: Teks (center)
+        // 5. Baris 3: Barcode untuk berat
         commands.push(0x0A); // Line feed
-        commands.push(0x0A); // Line feed lagi untuk spasi
         
-        // Font normal
-        commands.push(0x1B, 0x21, 0x00);
+        let barcodeBerat = [];
+        barcodeBerat.push(GS, 0x68, 0x40); // Height = 64 dots
+        barcodeBerat.push(GS, 0x77, 0x02); // Width = 2
+        barcodeBerat.push(GS, 0x6B, 0x49); // CODE128
+        barcodeBerat.push(beratValue.length); // Data length
         
-        // Teks dalam satu baris: "Kode: [kode]  Berat: [berat]g"
-        const teksBaris = encoder.encode(`Kode: ${kodeValue}  Berat: ${beratValue}g\n`);
-        commands = commands.concat(Array.from(teksBaris));
-        
-        // 5. Spasi minimal sebelum cut
-        commands.push(0x0A);
+        const beratBytes = encoder.encode(beratValue);
+        barcodeBerat = barcodeBerat.concat(Array.from(beratBytes));
+        commands = commands.concat(barcodeBerat);
         
         // 6. Potong kertas
         commands.push(0x1D, 0x56, 0x41, 0x00); // Full cut
@@ -402,10 +456,67 @@
         // Kirim perintah ke printer
         await writer.write(new Uint8Array(commands));
         
-        showNotification('Berhasil dicetak! Satu barcode besar + teks.');
+        showNotification('Berhasil dicetak! Format 3 baris.');
       } catch (error) {
         console.error("Print error:", error);
-        showNotification("Gagal mencetak: " + error.message);
+        
+        // Fallback: format yang lebih sederhana tanpa tabs
+        showNotification("Mencoba format alternatif...");
+        await printSimpleThreeLine();
+      }
+    }
+    
+    async function printSimpleThreeLine() {
+      try {
+        const encoder = new TextEncoder();
+        let commands = [];
+        
+        // Reset printer
+        commands.push(0x1B, 0x40);
+        
+        // Set line spacing normal
+        commands.push(0x1B, 0x33, 0x18);
+        
+        // Baris 1: Teks sederhana di kiri
+        commands.push(0x1B, 0x61, 0x00);
+        const line1 = encoder.encode("Kode: " + kodeValue + "  Berat: " + beratValue + "g\n");
+        commands = commands.concat(Array.from(line1));
+        
+        // Baris 2: Barcode kode (center)
+        commands.push(0x1B, 0x61, 0x01);
+        
+        const GS = 0x1D;
+        let barcodeKode = [];
+        barcodeKode.push(GS, 0x68, 0x40);
+        barcodeKode.push(GS, 0x77, 0x02);
+        barcodeKode.push(GS, 0x6B, 0x49);
+        barcodeKode.push(kodeValue.length);
+        
+        const kodeBytes = encoder.encode(kodeValue);
+        barcodeKode = barcodeKode.concat(Array.from(kodeBytes));
+        commands = commands.concat(barcodeKode);
+        
+        // Baris 3: Barcode berat (center)
+        commands.push(0x0A);
+        
+        let barcodeBerat = [];
+        barcodeBerat.push(GS, 0x68, 0x40);
+        barcodeBerat.push(GS, 0x77, 0x02);
+        barcodeBerat.push(GS, 0x6B, 0x49);
+        barcodeBerat.push(beratValue.length);
+        
+        const beratBytes = encoder.encode(beratValue);
+        barcodeBerat = barcodeBerat.concat(Array.from(beratBytes));
+        commands = commands.concat(barcodeBerat);
+        
+        // Potong
+        commands.push(0x1D, 0x56, 0x41, 0x00);
+        
+        await writer.write(new Uint8Array(commands));
+        showNotification('Berhasil dicetak dengan format sederhana!');
+      } catch (error2) {
+        console.error("Simple three line error:", error2);
+        showNotification("Gagal mencetak: " + error2.message);
       }
     }
     
