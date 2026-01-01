@@ -407,7 +407,7 @@
         commands.push(0x1B, 0x61, 0x00); // Left alignment
         
         // Cetak kode di kiri
-        const kodeText = encoder.encode("Kode: " + kodeValue + " ");
+        const kodeText = encoder.encode("K: " + kodeValue + " ");
         commands = commands.concat(Array.from(kodeText));
         
         // Pindah ke kanan untuk berat
@@ -417,7 +417,7 @@
         commands.push(0x00); // End of list
         commands.push(0x09); // Tab
         
-        const beratText = encoder.encode("Berat: " + beratValue + "g\n");
+        const beratText = encoder.encode("B: " + beratValue + "g\n");
         commands = commands.concat(Array.from(beratText));
         
         // Reset tabs
