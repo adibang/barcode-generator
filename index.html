@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Barcode & QR Code Generator - Toko</title>
+  <title>Barcode & QR Code Generator - Hemat Kertas</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -179,7 +179,7 @@
   <div class="calculator">
     <div id="display">
       <div>KODE: <span id="current-id">000000</span></div>
-      <div>BERAT: <span id="current-weight">00000</span></div>
+      <div>BERAT: <span id="current-weight">0</span></div>
     </div>
     
     <div class="function-row">
@@ -247,7 +247,7 @@
     
     function appendNumber(num) {
       if (currentInputMode === 'id') {
-        if (num === ',' || num === '.') return; // abaikan koma/titik di ID
+        if (num === ',' || num === '.') return;
         if (kodeValue.length < 12) {
           if (num === '00') {
             if (kodeValue.length <= 10) kodeValue += '00';
@@ -256,7 +256,6 @@
           }
         }
       } else if (currentInputMode === 'weight') {
-        // Untuk berat, kita hanya terima angka (titik akan ditangani di appendDecimal)
         if (num === ',' || num === '.') return;
         if (beratValue.length < 10) {
           if (num === '00') {
@@ -271,9 +270,7 @@
     
     function appendDecimal() {
       if (currentInputMode === 'weight') {
-        // Hanya izinkan satu titik desimal
         if (!beratValue.includes('.') && beratValue.length < 9) {
-          // Jika beratValue kosong, tambahkan "0." 
           if (beratValue === '' || beratValue === '0') {
             beratValue = '0.';
           } else {
@@ -310,34 +307,22 @@
     }
     
     function formatBeratValue(berat) {
-      // Format berat untuk ditampilkan: pastikan format desimal yang benar
       if (berat === '' || berat === '0') return '0';
-      
-      // Jika berakhir dengan titik, biarkan (misal: "12." berarti masih input)
       if (berat.endsWith('.')) return berat;
-      
-      // Hilangkan nol yang tidak perlu di belakang koma
       if (berat.includes('.')) {
         let parts = berat.split('.');
         if (parts[1] === '0' || parts[1] === '00' || parts[1] === '000') {
-          return parts[0]; // Hanya tampilkan angka bulat jika desimal .0
+          return parts[0];
         }
       }
-      
       return berat;
     }
     
     function validateBerat(berat) {
-      // Validasi input berat
       if (!berat.trim()) return false;
-      
-      // Pastikan hanya angka dan satu titik desimal
       const regex = /^\d*\.?\d*$/;
       if (!regex.test(berat)) return false;
-      
-      // Tidak boleh dimulai dengan titik
       if (berat.startsWith('.')) return false;
-      
       return true;
     }
     
@@ -347,7 +332,6 @@
         return;
       }
 
-      // Generate barcode KODE
       try {
         JsBarcode("#svg-id", kodeValue, {
           format: "CODE128",
@@ -361,23 +345,19 @@
         return;
       }
 
-      // Validasi dan format berat
       if (!validateBerat(beratValue)) {
         showNotification('Berat tidak valid. Gunakan format angka (contoh: 12.5)');
         return;
       }
       
-      // Format berat untuk ditampilkan
       const formattedBerat = formatBeratValue(beratValue);
       const displayBerat = formattedBerat === '0' ? '0' : formattedBerat;
       
-      // Jika berat kosong atau hanya "0", minta input
       if (beratValue === '' || beratValue === '0') {
         showNotification('Masukkan berat yang valid');
         return;
       }
 
-      // Generate QR Code untuk BERAT
       const qrContainer = document.getElementById('qr-weight');
       qrContainer.innerHTML = '';
       
@@ -385,7 +365,6 @@
         qrCodeInstance.clear();
       }
       
-      // Gunakan nilai asli untuk QR Code (dengan titik)
       qrCodeInstance = new QRCode(qrContainer, {
         text: beratValue,
         width: 100,
@@ -399,22 +378,19 @@
       showNotification('Barcode & QR Code berhasil digenerate');
     }
     
-    // Fungsi untuk membuat perintah QR Code ESC/POS
+    // Fungsi untuk membuat perintah QR Code ESC/POS yang lebih kecil
     function generateQRCodeCommand(data) {
-      // Pastikan data dalam format string
       data = String(data);
+      const GS = 0x1D;
       
-      // Perintah ESC/POS untuk QR Code
-      const GS = 0x1D; // Group Separator
-      
-      // 1. Set QR Code model (Model 2 - paling umum)
+      // 1. Set QR Code model (Model 2)
       let cmd = [GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00];
       
-      // 2. Set QR Code size (ukuran modul 6-8 biasanya bagus)
-      cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06]);
+      // 2. Set QR Code size lebih kecil (3 = sangat kecil, 4 = kecil)
+      cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x03]);
       
-      // 3. Set error correction level (H = 30%)
-      cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x48]);
+      // 3. Set error correction level (L = 7% untuk ukuran kecil)
+      cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30]);
       
       // 4. Simpan data QR Code
       const dataLength = data.length + 3;
@@ -423,7 +399,6 @@
       
       cmd = cmd.concat([GS, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30]);
       
-      // Tambahkan data sebagai bytes
       const encoder = new TextEncoder();
       const dataBytes = encoder.encode(data);
       cmd = cmd.concat(Array.from(dataBytes));
@@ -434,26 +409,22 @@
       return new Uint8Array(cmd);
     }
     
-    // Fungsi untuk membuat perintah barcode ESC/POS
+    // Fungsi untuk membuat perintah barcode ESC/POS yang lebih kecil
     function generateBarcodeCommand(data) {
-      // Pastikan data dalam format string
       data = String(data);
-      
-      // Perintah untuk barcode CODE128
       const GS = 0x1D;
       let cmd = [];
       
-      // Set barcode height
-      cmd.push(GS, 0x68, 0x50); // height = 80 dots
+      // Set barcode height lebih kecil (0x30 = 48 dots)
+      cmd.push(GS, 0x68, 0x30);
       
-      // Set barcode width
-      cmd.push(GS, 0x77, 0x02); // width = 2
+      // Set barcode width lebih kecil (1 = paling kecil)
+      cmd.push(GS, 0x77, 0x01);
       
       // Print barcode CODE128
-      cmd.push(GS, 0x6B, 0x49); // CODE128
-      cmd.push(data.length); // panjang data
+      cmd.push(GS, 0x6B, 0x49);
+      cmd.push(data.length);
       
-      // Tambahkan data sebagai bytes
       const encoder = new TextEncoder();
       const dataBytes = encoder.encode(data);
       cmd = cmd.concat(Array.from(dataBytes));
@@ -501,94 +472,105 @@
       try {
         showNotification("Mengirim ke printer...");
 
-        // Inisialisasi printer
         const encoder = new TextEncoder();
         let commands = [];
         
         // Reset printer
-        commands.push(0x1B, 0x40); // ESC @
+        commands.push(0x1B, 0x40);
         
-        // Set alignment center untuk judul
-        commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
+        // Set font kecil untuk menghemat ruang
+        commands.push(0x1B, 0x21, 0x00); // Font normal (tidak terlalu kecil agar terbaca)
         
-        // Judul "KODE PRODUK"
-        const title1 = encoder.encode("KODE PRODUK\n");
-        commands = commands.concat(Array.from(title1));
+        // Set alignment center untuk header
+        commands.push(0x1B, 0x61, 0x01);
+        
+        // Header sederhana
+        const header = encoder.encode("PRODUK\n");
+        commands = commands.concat(Array.from(header));
+        
+        // Garis pemisah tipis
+        const line = encoder.encode("----------------\n");
+        commands = commands.concat(Array.from(line));
         
         // Set alignment left untuk konten
-        commands.push(0x1B, 0x61, 0x00); // ESC a 0 (left)
+        commands.push(0x1B, 0x61, 0x00);
         
-        // Cetak barcode KODE
+        // Cetak barcode KODE (kiri)
         const barcodeCmd = generateBarcodeCommand(kodeValue);
         commands = commands.concat(Array.from(barcodeCmd));
         
-        // Feed lines setelah barcode
-        commands.push(0x0A, 0x0A); // \n \n
+        // Pindah ke posisi kanan untuk QR Code
+        // Gunakan perintah set absolute position
+        // Asumsi lebar kertas 58mm (384 dots), posisi 200 dots dari kiri
+        commands.push(0x1B, 0x24);
+        const pos = 200;
+        const pL = pos % 256;
+        const pH = Math.floor(pos / 256);
+        commands.push(pL, pH);
         
-        // Teks kode
-        const kodeText = encoder.encode("Kode: " + kodeValue + "\n");
-        commands = commands.concat(Array.from(kodeText));
-        
-        // Garis pemisah
-        const separator = encoder.encode("------------------------\n\n");
-        commands = commands.concat(Array.from(separator));
-        
-        // Judul "BERAT PRODUK"
-        commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
-        const title2 = encoder.encode("BERAT PRODUK\n");
-        commands = commands.concat(Array.from(title2));
-        
-        // Set alignment left untuk QR Code
-        commands.push(0x1B, 0x61, 0x00); // ESC a 0 (left)
-        
-        // Cetak QR Code untuk BERAT (gunakan nilai asli dengan titik)
+        // Cetak QR Code BERAT (kanan)
         const qrCmd = generateQRCodeCommand(beratValue);
         commands = commands.concat(Array.from(qrCmd));
         
-        // Feed lines setelah QR Code
-        commands.push(0x0A); // \n
+        // Kembali ke posisi normal
+        commands.push(0x0A); // Baris baru
         
-        // Format berat untuk ditampilkan
+        // Set alignment left untuk teks
+        commands.push(0x1B, 0x61, 0x00);
+        
+        // Teks di bawah barcode (kiri)
+        const kodeText = encoder.encode("K: " + kodeValue);
+        commands = commands.concat(Array.from(kodeText));
+        
+        // Pindah ke kanan untuk teks berat
+        commands.push(0x1B, 0x24);
+        const pos2 = 200;
+        const pL2 = pos2 % 256;
+        const pH2 = Math.floor(pos2 / 256);
+        commands.push(pL2, pH2);
+        
+        // Teks di bawah QR Code (kanan)
         const displayBerat = formatBeratValue(beratValue);
-        
-        // Teks berat dengan titik desimal
-        const beratText = encoder.encode("Berat: " + displayBerat + " gram\n\n");
+        const beratText = encoder.encode("B: " + displayBerat + "g");
         commands = commands.concat(Array.from(beratText));
         
-        // Tanggal dan waktu
+        // Kembali ke kiri
+        commands.push(0x0A, 0x0A); // Dua baris baru
+        
+        // Garis pemisah bawah
+        commands.push(0x1B, 0x61, 0x01);
+        const line2 = encoder.encode("----------------\n");
+        commands = commands.concat(Array.from(line2));
+        
+        // Tanggal dan waktu - lebih kecil
+        commands.push(0x1B, 0x21, 0x01); // Font lebih kecil
         const now = new Date();
-        const dateStr = now.toLocaleDateString('id-ID');
-        const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+        const dateStr = now.toLocaleDateString('id-ID', {day: '2-digit', month: '2-digit', year: 'numeric'});
+        const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', hour12: false});
         const datetimeText = encoder.encode(dateStr + " " + timeStr + "\n");
-        commands.push(0x1B, 0x61, 0x01); // Center alignment
         commands = commands.concat(Array.from(datetimeText));
         
-        // Feed beberapa baris sebelum cut
-        for (let i = 0; i < 3; i++) {
-          commands.push(0x0A);
-        }
+        // Hanya 1 baris kosong sebelum cut
+        commands.push(0x0A);
         
         // Potong kertas (full cut)
-        commands.push(0x1D, 0x56, 0x41, 0x00); // GS V 41 0
+        commands.push(0x1D, 0x56, 0x41, 0x00);
         
         // Kirim semua perintah ke printer
         await writer.write(new Uint8Array(commands));
         
-        showNotification('Berhasil dicetak!');
+        showNotification('Berhasil dicetak! Layout hemat kertas.');
       } catch (error) {
         console.error("Print error:", error);
-        showNotification("Gagal cetak: " + error.message);
         
-        // Coba alternatif format QR Code jika gagal
-        if (error.message.includes("not supported") || error.message.includes("invalid")) {
-          showNotification("Mencoba format alternatif...");
-          await tryAlternativePrint();
-        }
+        // Jika layout sejajar gagal, coba layout vertikal yang lebih ringkas
+        showNotification("Mencoba layout alternatif...");
+        await tryCompactPrint();
       }
     }
     
-    // Alternatif format QR Code jika yang pertama gagal
-    async function tryAlternativePrint() {
+    // Layout alternatif vertikal yang sangat hemat
+    async function tryCompactPrint() {
       try {
         const encoder = new TextEncoder();
         let commands = [];
@@ -596,35 +578,50 @@
         // Reset printer
         commands.push(0x1B, 0x40);
         
-        // Format alternatif untuk QR Code (beberapa printer berbeda)
-        const GS = 0x1D;
+        // Font kecil
+        commands.push(0x1B, 0x21, 0x01);
         
-        // Alternatif: Perintah yang lebih sederhana
-        commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08]); // size
-        commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x33]); // error correction
+        // Header minimal
+        commands.push(0x1B, 0x61, 0x01);
+        const header = encoder.encode("PRODUK\n");
+        commands = commands.concat(Array.from(header));
         
-        // Store data
-        const dataLength = beratValue.length + 3;
-        const pL = dataLength % 256;
-        const pH = Math.floor(dataLength / 256);
-        commands = commands.concat([GS, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30]);
+        // Set kiri untuk barcode
+        commands.push(0x1B, 0x61, 0x00);
         
-        // Data
-        const dataBytes = encoder.encode(beratValue);
-        commands = commands.concat(Array.from(dataBytes));
+        // Barcode kecil
+        const barcodeCmd = generateBarcodeCommand(kodeValue);
+        commands = commands.concat(Array.from(barcodeCmd));
         
-        // Print
-        commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]);
+        // Teks kode di bawah barcode
+        const kodeText = encoder.encode("Kode: " + kodeValue + "\n");
+        commands = commands.concat(Array.from(kodeText));
         
-        // Feed dan cut
-        commands.push(0x0A, 0x0A, 0x0A);
+        // QR code kecil
+        const qrCmd = generateQRCodeCommand(beratValue);
+        commands = commands.concat(Array.from(qrCmd));
+        
+        // Teks berat
+        const displayBerat = formatBeratValue(beratValue);
+        const beratText = encoder.encode("Berat: " + displayBerat + "g\n");
+        commands = commands.concat(Array.from(beratText));
+        
+        // Tanggal dan waktu satu baris
+        commands.push(0x1B, 0x61, 0x01);
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('id-ID', {day: '2-digit', month: '2-digit'});
+        const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', hour12: false});
+        const datetimeText = encoder.encode(dateStr + " " + timeStr + "\n");
+        commands = commands.concat(Array.from(datetimeText));
+        
+        // Potong langsung
         commands.push(0x1D, 0x56, 0x41, 0x00);
         
         await writer.write(new Uint8Array(commands));
-        showNotification('Berhasil dicetak dengan format alternatif!');
+        showNotification('Berhasil dicetak dengan layout hemat!');
       } catch (error2) {
-        console.error("Alternative print error:", error2);
-        showNotification("Printer mungkin tidak mendukung QR Code. Ganti ke barcode?");
+        console.error("Compact print error:", error2);
+        showNotification("Gagal cetak: " + error2.message);
       }
     }
     
@@ -641,27 +638,22 @@
       setTimeout(() => n.style.display = 'none', duration);
     }
     
-    // Fungsi untuk menangani input keyboard
     function handleKeyPress(event) {
       const key = event.key;
       
-      // Jika angka ditekan
       if (key >= '0' && key <= '9') {
         appendNumber(key);
       }
-      // Jika titik atau koma ditekan (untuk berat)
       else if (key === '.' || key === ',') {
         if (currentInputMode === 'weight') {
           event.preventDefault();
           appendDecimal();
         }
       }
-      // Jika backspace ditekan
       else if (key === 'Backspace') {
         event.preventDefault();
         backspace();
       }
-      // Jika enter ditekan
       else if (key === 'Enter') {
         event.preventDefault();
         generate();
@@ -670,8 +662,6 @@
     
     document.addEventListener('DOMContentLoaded', () => {
       updateDisplay();
-      
-      // Tambahkan event listener untuk keyboard
       document.addEventListener('keydown', handleKeyPress);
       
       if (!("serial" in navigator)) {
