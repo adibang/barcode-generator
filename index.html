@@ -449,6 +449,8 @@
         const beratBytes = encoder.encode(beratValue);
         barcodeBerat = barcodeBerat.concat(Array.from(beratBytes));
         commands = commands.concat(barcodeBerat);
+
+        commands.push(0x0A);
         
         // 6. Potong kertas
         commands.push(0x1D, 0x56, 0x41, 0x00); // Full cut
