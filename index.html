@@ -407,17 +407,17 @@
         commands.push(0x1B, 0x61, 0x00); // Left alignment
         
         // Cetak kode di kiri
-        const kodeText = encoder.encode("K: " + kodeValue + " ");
+        const kodeText = encoder.encode("Kode: " + kodeValue + " ");
         commands = commands.concat(Array.from(kodeText));
         
         // Pindah ke kanan untuk berat
         // Untuk printer 58mm, gunakan tabs
-        commands.push(0x1B, 0x44); // Set horizontal tabs
-        commands.push(0x28, 0x00); // Tab pada posisi 40 (0x28)
-        commands.push(0x00); // End of list
-        commands.push(0x09); // Tab
+        //commands.push(0x1B, 0x44); // Set horizontal tabs
+        //commands.push(0x28, 0x00); // Tab pada posisi 40 (0x28)
+        //commands.push(0x00); // End of list
+        //commands.push(0x09); // Tab
         
-        const beratText = encoder.encode("B: " + beratValue + "g\n");
+        const beratText = encoder.encode("Berat: " + beratValue + "g\n");
         commands = commands.concat(Array.from(beratText));
         
         // Reset tabs
