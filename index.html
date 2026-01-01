@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Barcode Generator - Format Sederhana</title>
+  <title>Barcode Printer - Format Sederhana</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
     * {
@@ -23,7 +23,7 @@
 
     .calculator {
       width: 100%;
-      max-width: 400px;
+      max-width: 350px;
       background: #2c3e50;
       padding: 15px;
       border-radius: 10px;
@@ -105,22 +105,31 @@
       background: #27ae60 !important;
     }
 
-    /* Preview vertikal */
-    .preview-container {
+    /* Preview */
+    .preview {
       margin-top: 15px;
       background: white;
       border-radius: 5px;
       padding: 10px;
+    }
+
+    .preview-item {
+      margin-bottom: 15px;
+    }
+
+    .preview-label {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 5px;
+    }
+
+    .preview-barcode {
       text-align: center;
     }
 
-    .barcode-preview {
-      margin: 10px 0;
-    }
-
-    .barcode-preview svg {
+    .preview-barcode svg {
       width: 100%;
-      max-height: 80px;
+      max-height: 60px;
     }
 
     #status {
@@ -188,20 +197,22 @@
       <button onclick="appendNumber('00')">00</button>
       <button class="decimal-btn" onclick="appendDecimal()">.</button>
       
-      <button class="print-btn function-btn" onclick="printBarcode()">CETAK</button>
+      <button class="print-btn function-btn" onclick="printSimple()">CETAK</button>
     </div>
 
-    <!-- Preview vertikal -->
-    <div class="preview-container">
-      <div class="barcode-preview">
-        <div>KODE PRODUK</div>
-        <svg id="barcode-kode"></svg>
-        <div id="kode-text"></div>
+    <!-- Preview sederhana -->
+    <div class="preview">
+      <div class="preview-item">
+        <div class="preview-label">KODE PRODUK</div>
+        <div class="preview-barcode">
+          <svg id="barcode-kode"></svg>
+        </div>
       </div>
-      <div class="barcode-preview">
-        <div>BERAT PRODUK</div>
-        <svg id="barcode-berat"></svg>
-        <div id="berat-text"></div>
+      <div class="preview-item">
+        <div class="preview-label">BERAT PRODUK</div>
+        <div class="preview-barcode">
+          <svg id="barcode-berat"></svg>
+        </div>
       </div>
     </div>
 
@@ -274,26 +285,12 @@
       generated = false;
       document.getElementById('barcode-kode').innerHTML = '';
       document.getElementById('barcode-berat').innerHTML = '';
-      document.getElementById('kode-text').textContent = '';
-      document.getElementById('berat-text').textContent = '';
       updateDisplay();
     }
     
     function updateDisplay() {
       document.getElementById('current-id').textContent = kodeValue || '000000';
       document.getElementById('current-weight').textContent = beratValue || '0';
-    }
-    
-    function formatBeratValue(berat) {
-      if (berat === '' || berat === '0') return '0';
-      if (berat.endsWith('.')) return berat;
-      if (berat.includes('.')) {
-        let parts = berat.split('.');
-        if (parts[1] === '0' || parts[1] === '00' || parts[1] === '000') {
-          return parts[0];
-        }
-      }
-      return berat;
     }
     
     function generate() {
@@ -307,11 +304,10 @@
         JsBarcode("#barcode-kode", kodeValue, {
           format: "CODE128",
           displayValue: false,
-          height: 50,
+          height: 40,
           margin: 0,
           fontSize: 0
         });
-        document.getElementById('kode-text').textContent = kodeValue;
       } catch (e) {
         showNotification('Kode tidak valid');
         return;
@@ -328,11 +324,10 @@
         JsBarcode("#barcode-berat", beratValue, {
           format: "CODE128",
           displayValue: false,
-          height: 50,
+          height: 40,
           margin: 0,
           fontSize: 0
         });
-        document.getElementById('berat-text').textContent = formatBeratValue(beratValue) + " gram";
       } catch (e) {
         showNotification('Berat tidak valid untuk barcode');
         return;
@@ -369,7 +364,7 @@
       }
     }
     
-    async function printBarcode() {
+    async function printSimple() {
       if (!generated) {
         showNotification('Harap klik GENERATE dulu');
         return;
@@ -388,27 +383,15 @@
         // 1. Reset printer
         commands.push(0x1B, 0x40); // ESC @
         
-        // 2. Set line spacing rapat
-        commands.push(0x1B, 0x33, 0x10); // Line spacing = 16 dots
+        // 2. Set alignment kiri
+        commands.push(0x1B, 0x61, 0x00); // Left alignment
         
-        // 3. Header - center
-        commands.push(0x1B, 0x61, 0x01); // Center alignment
-        const header = encoder.encode("PRODUK\n");
-        commands = commands.concat(Array.from(header));
-        
-        // 4. Garis pemisah
-        const line = encoder.encode("──────────\n");
-        commands = commands.concat(Array.from(line));
-        
-        // 5. Barcode KODE - center
-        commands.push(0x1B, 0x61, 0x01); // Center alignment
-        const kodeLabel = encoder.encode("KODE\n");
-        commands = commands.concat(Array.from(kodeLabel));
-        
-        // Barcode CODE128 untuk kode
+        // 3. Barcode KODE
         const GS = 0x1D;
+        
+        // Barcode untuk kode
         let barcodeKode = [];
-        barcodeKode.push(GS, 0x68, 0x40); // Height = 64 dots
+        barcodeKode.push(GS, 0x68, 0x50); // Height = 80 dots
         barcodeKode.push(GS, 0x77, 0x02); // Width = 2
         barcodeKode.push(GS, 0x6B, 0x49); // CODE128
         barcodeKode.push(kodeValue.length); // Data length
@@ -419,16 +402,12 @@
         
         // Teks kode
         commands.push(0x0A); // Line feed
-        const kodeText = encoder.encode(kodeValue + "\n\n");
+        const kodeText = encoder.encode("Kode: " + kodeValue + "\n\n");
         commands = commands.concat(Array.from(kodeText));
         
-        // 6. Barcode BERAT - center
-        const beratLabel = encoder.encode("BERAT\n");
-        commands = commands.concat(Array.from(beratLabel));
-        
-        // Barcode CODE128 untuk berat
+        // 4. Barcode BERAT
         let barcodeBerat = [];
-        barcodeBerat.push(GS, 0x68, 0x40); // Height = 64 dots
+        barcodeBerat.push(GS, 0x68, 0x50); // Height = 80 dots
         barcodeBerat.push(GS, 0x77, 0x02); // Width = 2
         barcodeBerat.push(GS, 0x6B, 0x49); // CODE128
         barcodeBerat.push(beratValue.length); // Data length
@@ -439,30 +418,16 @@
         
         // Teks berat
         commands.push(0x0A); // Line feed
-        const displayBerat = formatBeratValue(beratValue);
-        const beratText = encoder.encode(displayBerat + " gram\n\n");
+        const beratText = encoder.encode("Berat: " + beratValue + " gram\n\n");
         commands = commands.concat(Array.from(beratText));
         
-        // 7. Garis pemisah bawah
-        commands.push(0x1B, 0x61, 0x01); // Center alignment
-        const line2 = encoder.encode("──────────\n");
-        commands = commands.concat(Array.from(line2));
-        
-        // 8. Tanggal dan waktu - font kecil
-        commands.push(0x1B, 0x21, 0x01); // Font kecil
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('id-ID', {day: '2-digit', month: '2-digit', year: 'numeric'});
-        const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', hour12: false});
-        const datetimeText = encoder.encode(dateStr + " " + timeStr + "\n");
-        commands = commands.concat(Array.from(datetimeText));
-        
-        // 9. Potong kertas
+        // 5. Potong kertas
         commands.push(0x1D, 0x56, 0x41, 0x00); // Full cut
         
         // Kirim perintah ke printer
         await writer.write(new Uint8Array(commands));
         
-        showNotification('Berhasil dicetak!');
+        showNotification('Berhasil dicetak! Format sederhana.');
       } catch (error) {
         console.error("Print error:", error);
         showNotification("Gagal mencetak: " + error.message);
