@@ -87,10 +87,10 @@
       background: #a93226;
     }
 
-    .comma-btn {
+    .decimal-btn {
       background: #9b59b6;
     }
-    .comma-btn:active {
+    .decimal-btn:active {
       background: #8e44ad;
     }
 
@@ -209,7 +209,7 @@
       
       <button onclick="appendNumber('0')">0</button>
       <button onclick="appendNumber('00')">00</button>
-      <button class="comma-btn" onclick="appendNumber(',')">,</button>
+      <button class="decimal-btn" onclick="appendDecimal()">.</button>
       
       <button class="print-btn function-btn" onclick="printBarcode()">PRINT</button>
     </div>
@@ -247,7 +247,7 @@
     
     function appendNumber(num) {
       if (currentInputMode === 'id') {
-        if (num === ',') return;
+        if (num === ',' || num === '.') return; // abaikan koma/titik di ID
         if (kodeValue.length < 12) {
           if (num === '00') {
             if (kodeValue.length <= 10) kodeValue += '00';
@@ -256,11 +256,28 @@
           }
         }
       } else if (currentInputMode === 'weight') {
+        // Untuk berat, kita hanya terima angka (titik akan ditangani di appendDecimal)
+        if (num === ',' || num === '.') return;
         if (beratValue.length < 10) {
           if (num === '00') {
             if (beratValue.length <= 8) beratValue += '00';
           } else {
             beratValue += num;
+          }
+        }
+      }
+      updateDisplay();
+    }
+    
+    function appendDecimal() {
+      if (currentInputMode === 'weight') {
+        // Hanya izinkan satu titik desimal
+        if (!beratValue.includes('.') && beratValue.length < 9) {
+          // Jika beratValue kosong, tambahkan "0." 
+          if (beratValue === '' || beratValue === '0') {
+            beratValue = '0.';
+          } else {
+            beratValue += '.';
           }
         }
       }
@@ -289,7 +306,39 @@
     
     function updateDisplay() {
       document.getElementById('current-id').textContent = kodeValue || '000000';
-      document.getElementById('current-weight').textContent = beratValue || '00000';
+      document.getElementById('current-weight').textContent = beratValue || '0';
+    }
+    
+    function formatBeratValue(berat) {
+      // Format berat untuk ditampilkan: pastikan format desimal yang benar
+      if (berat === '' || berat === '0') return '0';
+      
+      // Jika berakhir dengan titik, biarkan (misal: "12." berarti masih input)
+      if (berat.endsWith('.')) return berat;
+      
+      // Hilangkan nol yang tidak perlu di belakang koma
+      if (berat.includes('.')) {
+        let parts = berat.split('.');
+        if (parts[1] === '0' || parts[1] === '00' || parts[1] === '000') {
+          return parts[0]; // Hanya tampilkan angka bulat jika desimal .0
+        }
+      }
+      
+      return berat;
+    }
+    
+    function validateBerat(berat) {
+      // Validasi input berat
+      if (!berat.trim()) return false;
+      
+      // Pastikan hanya angka dan satu titik desimal
+      const regex = /^\d*\.?\d*$/;
+      if (!regex.test(berat)) return false;
+      
+      // Tidak boleh dimulai dengan titik
+      if (berat.startsWith('.')) return false;
+      
+      return true;
     }
     
     function generate() {
@@ -312,12 +361,23 @@
         return;
       }
 
-      // Generate QR Code untuk BERAT
-      if (!beratValue.trim()) {
-        showNotification('Berat tidak boleh kosong');
+      // Validasi dan format berat
+      if (!validateBerat(beratValue)) {
+        showNotification('Berat tidak valid. Gunakan format angka (contoh: 12.5)');
+        return;
+      }
+      
+      // Format berat untuk ditampilkan
+      const formattedBerat = formatBeratValue(beratValue);
+      const displayBerat = formattedBerat === '0' ? '0' : formattedBerat;
+      
+      // Jika berat kosong atau hanya "0", minta input
+      if (beratValue === '' || beratValue === '0') {
+        showNotification('Masukkan berat yang valid');
         return;
       }
 
+      // Generate QR Code untuk BERAT
       const qrContainer = document.getElementById('qr-weight');
       qrContainer.innerHTML = '';
       
@@ -325,6 +385,7 @@
         qrCodeInstance.clear();
       }
       
+      // Gunakan nilai asli untuk QR Code (dengan titik)
       qrCodeInstance = new QRCode(qrContainer, {
         text: beratValue,
         width: 100,
@@ -340,19 +401,19 @@
     
     // Fungsi untuk membuat perintah QR Code ESC/POS
     function generateQRCodeCommand(data) {
+      // Pastikan data dalam format string
+      data = String(data);
+      
       // Perintah ESC/POS untuk QR Code
       const GS = 0x1D; // Group Separator
-      const ESC = 0x1B; // Escape
       
       // 1. Set QR Code model (Model 2 - paling umum)
       let cmd = [GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00];
       
-      // 2. Set QR Code size (ukuran modul)
-      // Ukuran 6-8 biasanya bagus untuk printer thermal
+      // 2. Set QR Code size (ukuran modul 6-8 biasanya bagus)
       cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06]);
       
-      // 3. Set error correction level (L: 7%, M: 15%, Q: 25%, H: 30%)
-      // H (30%) untuk toleransi error tinggi
+      // 3. Set error correction level (H = 30%)
       cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x48]);
       
       // 4. Simpan data QR Code
@@ -375,6 +436,9 @@
     
     // Fungsi untuk membuat perintah barcode ESC/POS
     function generateBarcodeCommand(data) {
+      // Pastikan data dalam format string
+      data = String(data);
+      
       // Perintah untuk barcode CODE128
       const GS = 0x1D;
       let cmd = [];
@@ -477,16 +541,27 @@
         // Set alignment left untuk QR Code
         commands.push(0x1B, 0x61, 0x00); // ESC a 0 (left)
         
-        // Cetak QR Code untuk BERAT
+        // Cetak QR Code untuk BERAT (gunakan nilai asli dengan titik)
         const qrCmd = generateQRCodeCommand(beratValue);
         commands = commands.concat(Array.from(qrCmd));
         
         // Feed lines setelah QR Code
         commands.push(0x0A); // \n
         
-        // Teks berat
-        const beratText = encoder.encode("Berat: " + beratValue + " gram\n\n");
+        // Format berat untuk ditampilkan
+        const displayBerat = formatBeratValue(beratValue);
+        
+        // Teks berat dengan titik desimal
+        const beratText = encoder.encode("Berat: " + displayBerat + " gram\n\n");
         commands = commands.concat(Array.from(beratText));
+        
+        // Tanggal dan waktu
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('id-ID');
+        const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+        const datetimeText = encoder.encode(dateStr + " " + timeStr + "\n");
+        commands.push(0x1B, 0x61, 0x01); // Center alignment
+        commands = commands.concat(Array.from(datetimeText));
         
         // Feed beberapa baris sebelum cut
         for (let i = 0; i < 3; i++) {
@@ -524,7 +599,7 @@
         // Format alternatif untuk QR Code (beberapa printer berbeda)
         const GS = 0x1D;
         
-        // Alternatif 1: Perintah yang lebih sederhana
+        // Alternatif: Perintah yang lebih sederhana
         commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08]); // size
         commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x33]); // error correction
         
@@ -566,8 +641,39 @@
       setTimeout(() => n.style.display = 'none', duration);
     }
     
+    // Fungsi untuk menangani input keyboard
+    function handleKeyPress(event) {
+      const key = event.key;
+      
+      // Jika angka ditekan
+      if (key >= '0' && key <= '9') {
+        appendNumber(key);
+      }
+      // Jika titik atau koma ditekan (untuk berat)
+      else if (key === '.' || key === ',') {
+        if (currentInputMode === 'weight') {
+          event.preventDefault();
+          appendDecimal();
+        }
+      }
+      // Jika backspace ditekan
+      else if (key === 'Backspace') {
+        event.preventDefault();
+        backspace();
+      }
+      // Jika enter ditekan
+      else if (key === 'Enter') {
+        event.preventDefault();
+        generate();
+      }
+    }
+    
     document.addEventListener('DOMContentLoaded', () => {
       updateDisplay();
+      
+      // Tambahkan event listener untuk keyboard
+      document.addEventListener('keydown', handleKeyPress);
+      
       if (!("serial" in navigator)) {
         document.getElementById('status').textContent = 'Browser tidak mendukung Web Serial API';
       }
