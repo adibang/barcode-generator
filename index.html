@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Barcode Generator - Hemat Kertas</title>
+  <title>Barcode Generator - Format Sederhana</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
     * {
@@ -23,7 +23,7 @@
 
     .calculator {
       width: 100%;
-      max-width: 450px;
+      max-width: 400px;
       background: #2c3e50;
       padding: 15px;
       border-radius: 10px;
@@ -105,31 +105,22 @@
       background: #27ae60 !important;
     }
 
-    /* Preview berdampingan */
-    .preview-row {
-      display: flex;
-      gap: 8px;
+    /* Preview vertikal */
+    .preview-container {
       margin-top: 15px;
-    }
-
-    .preview-box {
-      flex: 1;
       background: white;
       border-radius: 5px;
-      padding: 8px;
+      padding: 10px;
       text-align: center;
-      font-size: 12px;
-      color: #555;
-      min-height: 100px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
     }
 
-    .preview-box svg {
+    .barcode-preview {
+      margin: 10px 0;
+    }
+
+    .barcode-preview svg {
       width: 100%;
       max-height: 80px;
-      margin-top: 4px;
     }
 
     #status {
@@ -197,18 +188,20 @@
       <button onclick="appendNumber('00')">00</button>
       <button class="decimal-btn" onclick="appendDecimal()">.</button>
       
-      <button class="print-btn function-btn" onclick="printBarcode()">CETAK BARCODE</button>
+      <button class="print-btn function-btn" onclick="printBarcode()">CETAK</button>
     </div>
 
-    <!-- Preview barcode berdampingan -->
-    <div class="preview-row">
-      <div class="preview-box">
-        <div>KODE (Barcode)</div>
+    <!-- Preview vertikal -->
+    <div class="preview-container">
+      <div class="barcode-preview">
+        <div>KODE PRODUK</div>
         <svg id="barcode-kode"></svg>
+        <div id="kode-text"></div>
       </div>
-      <div class="preview-box">
-        <div>BERAT (Barcode)</div>
+      <div class="barcode-preview">
+        <div>BERAT PRODUK</div>
         <svg id="barcode-berat"></svg>
+        <div id="berat-text"></div>
       </div>
     </div>
 
@@ -279,9 +272,10 @@
       kodeValue = '';
       beratValue = '';
       generated = false;
-      // Clear barcode preview
       document.getElementById('barcode-kode').innerHTML = '';
       document.getElementById('barcode-berat').innerHTML = '';
+      document.getElementById('kode-text').textContent = '';
+      document.getElementById('berat-text').textContent = '';
       updateDisplay();
     }
     
@@ -302,14 +296,6 @@
       return berat;
     }
     
-    function validateBerat(berat) {
-      if (!berat.trim()) return false;
-      const regex = /^\d*\.?\d*$/;
-      if (!regex.test(berat)) return false;
-      if (berat.startsWith('.')) return false;
-      return true;
-    }
-    
     function generate() {
       if (!kodeValue.trim()) {
         showNotification('Kode tidak boleh kosong');
@@ -321,80 +307,39 @@
         JsBarcode("#barcode-kode", kodeValue, {
           format: "CODE128",
           displayValue: false,
-          height: 60,
-          margin: 2,
+          height: 50,
+          margin: 0,
           fontSize: 0
         });
+        document.getElementById('kode-text').textContent = kodeValue;
       } catch (e) {
         showNotification('Kode tidak valid');
         return;
       }
 
       // Validasi berat
-      if (!validateBerat(beratValue)) {
-        showNotification('Berat tidak valid. Gunakan format angka (contoh: 12.5)');
+      if (!beratValue.trim()) {
+        showNotification('Berat tidak boleh kosong');
         return;
       }
       
-      const formattedBerat = formatBeratValue(beratValue);
-      const displayBerat = formattedBerat === '0' ? '0' : formattedBerat;
-      
-      if (beratValue === '' || beratValue === '0') {
-        showNotification('Masukkan berat yang valid');
-        return;
-      }
-
-      // Generate barcode BERAT (mendukung titik desimal)
+      // Generate barcode BERAT
       try {
         JsBarcode("#barcode-berat", beratValue, {
           format: "CODE128",
           displayValue: false,
-          height: 60,
-          margin: 2,
+          height: 50,
+          margin: 0,
           fontSize: 0
         });
+        document.getElementById('berat-text').textContent = formatBeratValue(beratValue) + " gram";
       } catch (e) {
         showNotification('Berat tidak valid untuk barcode');
         return;
       }
 
       generated = true;
-      showNotification('Dua barcode berhasil digenerate');
-    }
-    
-    // Fungsi untuk membuat perintah barcode ESC/POS
-    function generateBarcodeCommand(data, isLeft = true) {
-      data = String(data);
-      const GS = 0x1D; // Group Separator
-      let cmd = [];
-      
-      // Set barcode height (0x40 = 64 dots)
-      cmd.push(GS, 0x68, 0x40);
-      
-      // Set barcode width (2 = sedang)
-      cmd.push(GS, 0x77, 0x02);
-      
-      // Untuk barcode di kanan, kita perlu set posisi dulu
-      if (!isLeft) {
-        // Set absolute position untuk barcode kanan
-        // Asumsi lebar kertas 58mm (384 dots), posisi 200 dots dari kiri
-        cmd.push(0x1B, 0x24); // ESC $ - Set absolute position
-        const pos = 180; // 180 dots dari kiri (sedikit ruang untuk barcode kanan)
-        const pL = pos % 256;
-        const pH = Math.floor(pos / 256);
-        cmd.push(pL, pH);
-      }
-      
-      // Print barcode CODE128
-      cmd.push(GS, 0x6B, 0x49); // CODE128
-      cmd.push(data.length); // panjang data
-      
-      // Tambahkan data sebagai bytes
-      const encoder = new TextEncoder();
-      const dataBytes = encoder.encode(data);
-      cmd = cmd.concat(Array.from(dataBytes));
-      
-      return new Uint8Array(cmd);
+      showNotification('Barcode berhasil digenerate');
     }
     
     async function connectToPrinter() {
@@ -435,7 +380,7 @@
       }
 
       try {
-        showNotification("Mencetak dua barcode sejajar...");
+        showNotification("Mencetak...");
 
         const encoder = new TextEncoder();
         let commands = [];
@@ -443,65 +388,67 @@
         // 1. Reset printer
         commands.push(0x1B, 0x40); // ESC @
         
-        // 2. Set line spacing lebih rapat
-        commands.push(0x1B, 0x33, 0x18); // Line spacing = 24 dots
+        // 2. Set line spacing rapat
+        commands.push(0x1B, 0x33, 0x10); // Line spacing = 16 dots
         
-        // 3. Header - center, font normal
+        // 3. Header - center
         commands.push(0x1B, 0x61, 0x01); // Center alignment
-        const header = encoder.encode("DATA PRODUK\n");
+        const header = encoder.encode("PRODUK\n");
         commands = commands.concat(Array.from(header));
         
         // 4. Garis pemisah
-        const line = encoder.encode("----------------\n");
+        const line = encoder.encode("──────────\n");
         commands = commands.concat(Array.from(line));
         
-        // 5. Set alignment left untuk label kode
-        commands.push(0x1B, 0x61, 0x00); // Left alignment
-        
-        // 6. Label untuk barcode kiri
-        const kodeLabel = encoder.encode("KODE:\n");
+        // 5. Barcode KODE - center
+        commands.push(0x1B, 0x61, 0x01); // Center alignment
+        const kodeLabel = encoder.encode("KODE\n");
         commands = commands.concat(Array.from(kodeLabel));
         
-        // 7. Cetak barcode KODE (kiri)
-        const barcodeKodeCmd = generateBarcodeCommand(kodeValue, true);
-        commands = commands.concat(Array.from(barcodeKodeCmd));
+        // Barcode CODE128 untuk kode
+        const GS = 0x1D;
+        let barcodeKode = [];
+        barcodeKode.push(GS, 0x68, 0x40); // Height = 64 dots
+        barcodeKode.push(GS, 0x77, 0x02); // Width = 2
+        barcodeKode.push(GS, 0x6B, 0x49); // CODE128
+        barcodeKode.push(kodeValue.length); // Data length
         
-        // 8. Teks di bawah barcode kiri
-        commands.push(0x0A); // Baris baru
-        const kodeText = encoder.encode(kodeValue);
+        const kodeBytes = encoder.encode(kodeValue);
+        barcodeKode = barcodeKode.concat(Array.from(kodeBytes));
+        commands = commands.concat(barcodeKode);
+        
+        // Teks kode
+        commands.push(0x0A); // Line feed
+        const kodeText = encoder.encode(kodeValue + "\n\n");
         commands = commands.concat(Array.from(kodeText));
         
-        // 9. Pindah ke posisi untuk label berat (kanan)
-        // Set absolute position untuk teks label berat
-        commands.push(0x1B, 0x24); // ESC $ - Set absolute position
-        const posLabel = 200;
-        const pLLabel = posLabel % 256;
-        const pHLabel = Math.floor(posLabel / 256);
-        commands.push(pLLabel, pHLabel);
-        
-        // 10. Label untuk barcode kanan
-        const beratLabel = encoder.encode("BERAT:\n");
+        // 6. Barcode BERAT - center
+        const beratLabel = encoder.encode("BERAT\n");
         commands = commands.concat(Array.from(beratLabel));
         
-        // 11. Cetak barcode BERAT (kanan)
-        const barcodeBeratCmd = generateBarcodeCommand(beratValue, false);
-        commands = commands.concat(Array.from(barcodeBeratCmd));
+        // Barcode CODE128 untuk berat
+        let barcodeBerat = [];
+        barcodeBerat.push(GS, 0x68, 0x40); // Height = 64 dots
+        barcodeBerat.push(GS, 0x77, 0x02); // Width = 2
+        barcodeBerat.push(GS, 0x6B, 0x49); // CODE128
+        barcodeBerat.push(beratValue.length); // Data length
         
-        // 12. Teks di bawah barcode kanan
-        commands.push(0x0A); // Baris baru
+        const beratBytes = encoder.encode(beratValue);
+        barcodeBerat = barcodeBerat.concat(Array.from(beratBytes));
+        commands = commands.concat(barcodeBerat);
+        
+        // Teks berat
+        commands.push(0x0A); // Line feed
         const displayBerat = formatBeratValue(beratValue);
-        const beratText = encoder.encode(displayBerat + "g");
+        const beratText = encoder.encode(displayBerat + " gram\n\n");
         commands = commands.concat(Array.from(beratText));
         
-        // 13. Kembali ke kiri untuk footer
-        commands.push(0x0A, 0x0A); // Dua baris baru
+        // 7. Garis pemisah bawah
         commands.push(0x1B, 0x61, 0x01); // Center alignment
-        
-        // 14. Garis pemisah bawah
-        const line2 = encoder.encode("----------------\n");
+        const line2 = encoder.encode("──────────\n");
         commands = commands.concat(Array.from(line2));
         
-        // 15. Tanggal dan waktu - font kecil
+        // 8. Tanggal dan waktu - font kecil
         commands.push(0x1B, 0x21, 0x01); // Font kecil
         const now = new Date();
         const dateStr = now.toLocaleDateString('id-ID', {day: '2-digit', month: '2-digit', year: 'numeric'});
@@ -509,103 +456,16 @@
         const datetimeText = encoder.encode(dateStr + " " + timeStr + "\n");
         commands = commands.concat(Array.from(datetimeText));
         
-        // 16. Feed sedikit sebelum cut
-        commands.push(0x0A);
-        
-        // 17. Potong kertas
+        // 9. Potong kertas
         commands.push(0x1D, 0x56, 0x41, 0x00); // Full cut
         
-        // Kirim semua perintah ke printer
+        // Kirim perintah ke printer
         await writer.write(new Uint8Array(commands));
         
-        showNotification('Dua barcode berhasil dicetak sejajar!');
+        showNotification('Berhasil dicetak!');
       } catch (error) {
         console.error("Print error:", error);
-        showNotification("Mencoba metode cetak sederhana...");
-        
-        // Fallback: cetak secara vertikal (satu di bawah satu)
-        await tryVerticalPrint();
-      }
-    }
-    
-    // Fallback: cetak barcode secara vertikal
-    async function tryVerticalPrint() {
-      try {
-        const encoder = new TextEncoder();
-        let commands = [];
-        
-        // Reset printer
-        commands.push(0x1B, 0x40);
-        
-        // Header center
-        commands.push(0x1B, 0x61, 0x01);
-        const header = encoder.encode("DATA PRODUK\n");
-        commands = commands.concat(Array.from(header));
-        
-        // Garis pemisah
-        const line = encoder.encode("----------------\n");
-        commands = commands.concat(Array.from(line));
-        
-        // Barcode KODE
-        commands.push(0x1B, 0x61, 0x00); // Left alignment
-        const kodeLabel = encoder.encode("KODE:\n");
-        commands = commands.concat(Array.from(kodeLabel));
-        
-        // Barcode untuk kode
-        const GS = 0x1D;
-        let barcodeCmd = [];
-        barcodeCmd.push(GS, 0x68, 0x50); // Height
-        barcodeCmd.push(GS, 0x77, 0x02); // Width
-        barcodeCmd.push(GS, 0x6B, 0x49); // CODE128
-        barcodeCmd.push(kodeValue.length);
-        
-        const encoder2 = new TextEncoder();
-        const kodeBytes = encoder2.encode(kodeValue);
-        barcodeCmd = barcodeCmd.concat(Array.from(kodeBytes));
-        commands = commands.concat(barcodeCmd);
-        
-        // Teks kode
-        commands.push(0x0A);
-        const kodeText = encoder.encode(kodeValue + "\n\n");
-        commands = commands.concat(Array.from(kodeText));
-        
-        // Barcode BERAT
-        const beratLabel = encoder.encode("BERAT:\n");
-        commands = commands.concat(Array.from(beratLabel));
-        
-        // Barcode untuk berat
-        let beratBarcodeCmd = [];
-        beratBarcodeCmd.push(GS, 0x68, 0x50); // Height
-        beratBarcodeCmd.push(GS, 0x77, 0x02); // Width
-        beratBarcodeCmd.push(GS, 0x6B, 0x49); // CODE128
-        beratBarcodeCmd.push(beratValue.length);
-        
-        const beratBytes = encoder2.encode(beratValue);
-        beratBarcodeCmd = beratBarcodeCmd.concat(Array.from(beratBytes));
-        commands = commands.concat(beratBarcodeCmd);
-        
-        // Teks berat
-        commands.push(0x0A);
-        const displayBerat = formatBeratValue(beratValue);
-        const beratText = encoder.encode(displayBerat + " gram\n\n");
-        commands = commands.concat(Array.from(beratText));
-        
-        // Footer center
-        commands.push(0x1B, 0x61, 0x01);
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('id-ID', {day: '2-digit', month: '2-digit', year: 'numeric'});
-        const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', hour12: false});
-        const datetimeText = encoder.encode(dateStr + " " + timeStr + "\n");
-        commands = commands.concat(Array.from(datetimeText));
-        
-        // Potong kertas
-        commands.push(0x1D, 0x56, 0x41, 0x00);
-        
-        await writer.write(new Uint8Array(commands));
-        showNotification('Barcode dicetak secara vertikal!');
-      } catch (error2) {
-        console.error("Vertical print error:", error2);
-        showNotification("Gagal mencetak: " + error2.message);
+        showNotification("Gagal mencetak: " + error.message);
       }
     }
     
@@ -622,31 +482,8 @@
       setTimeout(() => n.style.display = 'none', duration);
     }
     
-    function handleKeyPress(event) {
-      const key = event.key;
-      
-      if (key >= '0' && key <= '9') {
-        appendNumber(key);
-      }
-      else if (key === '.' || key === ',') {
-        if (currentInputMode === 'weight') {
-          event.preventDefault();
-          appendDecimal();
-        }
-      }
-      else if (key === 'Backspace') {
-        event.preventDefault();
-        backspace();
-      }
-      else if (key === 'Enter') {
-        event.preventDefault();
-        generate();
-      }
-    }
-    
     document.addEventListener('DOMContentLoaded', () => {
       updateDisplay();
-      document.addEventListener('keydown', handleKeyPress);
       
       if (!("serial" in navigator)) {
         document.getElementById('status').textContent = 'Browser tidak mendukung Web Serial API';
