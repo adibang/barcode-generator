@@ -507,15 +507,22 @@
         // Reset printer
         commands.push(0x1B, 0x40); // ESC @
         
-        // Set alignment center untuk judul
+        // Set alignment center
         commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
         
-        // Judul "KODE PRODUK"
-        const title1 = encoder.encode("KODE PRODUK\n");
-        commands = commands.concat(Array.from(title1));
+        // Format berat untuk ditampilkan
+        const displayBerat = formatBeratValue(beratValue);
         
-        // Set alignment left untuk konten
-        commands.push(0x1B, 0x61, 0x00); // ESC a 0 (left)
+        // Baris 1: [Kode Produk][berat produk]
+        const produkText = encoder.encode("[" + kodeValue + "][" + displayBerat + "]\n");
+        commands = commands.concat(Array.from(produkText));
+        
+        // Feed lines
+        commands.push(0x0A); // \n
+        
+        // Baris 2: [Barcode]
+        // Set alignment center untuk barcode
+        commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
         
         // Cetak barcode KODE
         const barcodeCmd = generateBarcodeCommand(kodeValue);
@@ -524,48 +531,13 @@
         // Feed lines setelah barcode
         commands.push(0x0A, 0x0A); // \n \n
         
-        // Teks kode
-        const kodeText = encoder.encode("Kode: " + kodeValue + "\n");
-        commands = commands.concat(Array.from(kodeText));
-        
-        // Garis pemisah
-        const separator = encoder.encode("------------------------\n\n");
-        commands = commands.concat(Array.from(separator));
-        
-        // Judul "BERAT PRODUK"
-        commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
-        const title2 = encoder.encode("BERAT PRODUK\n");
-        commands = commands.concat(Array.from(title2));
-        
-        // Set alignment left untuk QR Code
-        commands.push(0x1B, 0x61, 0x00); // ESC a 0 (left)
-        
-        // Cetak QR Code untuk BERAT (gunakan nilai asli dengan titik)
+        // Baris 3: [QR Code]
+        // Cetak QR Code untuk BERAT
         const qrCmd = generateQRCodeCommand(beratValue);
         commands = commands.concat(Array.from(qrCmd));
         
         // Feed lines setelah QR Code
-        commands.push(0x0A); // \n
-        
-        // Format berat untuk ditampilkan
-        const displayBerat = formatBeratValue(beratValue);
-        
-        // Teks berat dengan titik desimal
-        const beratText = encoder.encode("Berat: " + displayBerat + " gram\n\n");
-        commands = commands.concat(Array.from(beratText));
-        
-        // Tanggal dan waktu
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('id-ID');
-        const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
-        const datetimeText = encoder.encode(dateStr + " " + timeStr + "\n");
-        commands.push(0x1B, 0x61, 0x01); // Center alignment
-        commands = commands.concat(Array.from(datetimeText));
-        
-        // Feed beberapa baris sebelum cut
-        for (let i = 0; i < 3; i++) {
-          commands.push(0x0A);
-        }
+        commands.push(0x0A, 0x0A, 0x0A); // \n \n \n
         
         // Potong kertas (full cut)
         commands.push(0x1D, 0x56, 0x41, 0x00); // GS V 41 0
@@ -595,10 +567,30 @@
         // Reset printer
         commands.push(0x1B, 0x40);
         
-        // Format alternatif untuk QR Code (beberapa printer berbeda)
+        // Set alignment center
+        commands.push(0x1B, 0x61, 0x01); // center
+        
+        // Format berat untuk ditampilkan
+        const displayBerat = formatBeratValue(beratValue);
+        
+        // Baris 1: [Kode Produk][berat produk]
+        const produkText = encoder.encode("[" + kodeValue + "][" + displayBerat + "]\n\n");
+        commands = commands.concat(Array.from(produkText));
+        
+        // Alternatif: Perintah yang lebih sederhana untuk QR Code
         const GS = 0x1D;
         
-        // Alternatif: Perintah yang lebih sederhana
+        // Set alignment center untuk barcode
+        commands.push(0x1B, 0x61, 0x01); // center
+        
+        // Cetak barcode
+        const barcodeCmd = generateBarcodeCommand(kodeValue);
+        commands = commands.concat(Array.from(barcodeCmd));
+        
+        // Feed lines
+        commands.push(0x0A, 0x0A); // \n \n
+        
+        // Alternatif QR Code
         commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08]); // size
         commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x33]); // error correction
         
