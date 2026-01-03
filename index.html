@@ -529,7 +529,7 @@
         commands = commands.concat(Array.from(barcodeCmd));
         
         // Feed lines setelah barcode
-        commands.push(0x0A, 0x0A); // \n \n
+        commands.push(0x0A); // \n
         
         // Baris 3: [QR Code]
         // Cetak QR Code untuk BERAT
@@ -537,7 +537,7 @@
         commands = commands.concat(Array.from(qrCmd));
         
         // Feed lines setelah QR Code
-        commands.push(0x0A, 0x0A, 0x0A); // \n \n \n
+        commands.push(0x0A, 0x0A); // \n \n
         
         // Potong kertas (full cut)
         commands.push(0x1D, 0x56, 0x41, 0x00); // GS V 41 0
@@ -588,7 +588,7 @@
         commands = commands.concat(Array.from(barcodeCmd));
         
         // Feed lines
-        commands.push(0x0A, 0x0A); // \n \n
+        commands.push(0x0A); // \n
         
         // Alternatif QR Code
         commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08]); // size
@@ -608,7 +608,7 @@
         commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]);
         
         // Feed dan cut
-        commands.push(0x0A, 0x0A, 0x0A);
+        commands.push(0x0A, 0x0A);
         commands.push(0x1D, 0x56, 0x41, 0x00);
         
         await writer.write(new Uint8Array(commands));
