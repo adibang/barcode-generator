@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Barcode & QR Code Generator - Toko</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      background: #f9f9f9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      touch-action: manipulation;
+    }
+
+    .calculator {
+      width: 100%;
+      max-width: 450px;
+      background: #e67e22;
+      padding: 25px;
+      border-radius: 25px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    #display {
+      background: #f0f0f0;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 20px;
+      text-align: right;
+      font-family: monospace;
+      font-size: 1.1em;
+      user-select: text;
+    }
+
+    .function-row, .buttons {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .function-row {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .buttons {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    button {
+      padding: 14px 8px;
+      border: none;
+      background: #ffffff;
+      color: #333;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 16px;
+      min-height: 48px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: all 0.1s ease;
+      font-weight: 600;
+      position: relative;
+      overflow: hidden;
+      outline: none;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transform: translateZ(0);
+      will-change: transform, background-color;
+    }
+
+    button:active, button.active {
+      transform: scale(0.95) translateZ(0);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: transform 0.05s ease;
+    }
+
+    .function-btn {
+      background: #ffffff;
+    }
+    .function-btn:active, .function-btn.active {
+      background: #d35400;
+      color: white;
+    }
+
+    .backspace-btn {
+      background: #c0392b;
+      color: white;
+    }
+    .backspace-btn:active, .backspace-btn.active {
+      background: #a93226;
+    }
+
+    .decimal-btn {
+      background: #ffffff;
+    }
+
+    .print-btn {
+      grid-column: span 3;
+      background: #ffffff !important;
+    }
+    .print-btn:active, .print-btn.active {
+      background: #27ae60 !important;
+      color: white;
+    }
+
+    .active-mode {
+      background: #27ae60 !important;
+      color: white;
+    }
+
+    /* Preview berdampingan */
+    .preview-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    .preview-box {
+      flex: 1;
+      background: white;
+      border-radius: 20px;
+      padding: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #555;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .preview-box svg {
+      width: 100%;
+      max-height: 60px;
+      margin-top: 4px;
+    }
+
+    #qr-weight {
+      width: 100%;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #qr-weight canvas, #qr-weight img {
+      max-width: 100%;
+      max-height: 60px;
+    }
+
+    #status {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 15px;
+      text-align: center;
+      color: white;
+      font-size: 13px;
+    }
+
+    .status-connected { background-color: #27ae60; }
+    .status-disconnected { background-color: #c0392b; }
+
+    #notification {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 16px;
+      border-radius: 5px;
+      display: none;
+      color: white;
+      background-color: #2c3e50;
+      max-width: 90%;
+      text-align: center;
+      z-index: 1000;
+      font-size: 14px;
+    }
+    
+    /* Audio status indicator */
+    .audio-status {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #4CAF50;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 1000;
+    }
+    .audio-status.show {
+      opacity: 1;
+    }
+    
+    /* Ripple effect for buttons */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.6);
+      transform: scale(0);
+      animation: ripple-animation 0.6s linear;
+      pointer-events: none;
+    }
+    
+    @keyframes ripple-animation {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="audio-status" id="audio-status">Audio: Memuat...</div>
+  
+  <div class="calculator">
+    <div id="display">
+      <div>KODE: <span id="current-id">000000</span></div>
+      <div>BERAT: <span id="current-weight">00000</span></div>
+    </div>
+    
+    <div class="function-row">
+      <button id="id-btn" class="function-btn active-mode">KODE</button>
+      <button id="weight-btn" class="function-btn">BERAT</button>
+      <button class="backspace-btn">⌫</button>
+    </div>
+    
+    <div class="function-row">
+      <button class="function-btn">CLEAR</button>
+      <button class="function-btn">GENERATE</button>
+      <button class="function-btn">CONNECT</button>
+    </div>
+    
+    <div class="buttons">
+      <button>1</button>
+      <button>2</button>
+      <button>3</button>
+      
+      <button>4</button>
+      <button>5</button>
+      <button>6</button>
+      
+      <button>7</button>
+      <button>8</button>
+      <button>9</button>
+      
+      <button>0</button>
+      <button>00</button>
+      <button class="decimal-btn">.</button>
+      
+      <button class="print-btn function-btn">PRINT</button>
+    </div>
+
+    <!-- Preview berdampingan -->
+    <div class="preview-row">
+      <div class="preview-box">
+        <div>KODE (Barcode)</div>
+        <svg id="svg-id"></svg>
+      </div>
+      <div class="preview-box">
+        <div>BERAT (QR Code)</div>
+        <div id="qr-weight"></div>
+      </div>
+    </div>
+
+    <div id="status" class="status-disconnected">Printer: Tidak Terkoneksi</div>
+  </div>
+  <div id="notification"></div>
+
+  <script>
+    // Audio system
+    let audioContext = null;
+    let isAudioInitialized = false;
+    const audioStatus = document.getElementById('audio-status');
+    
+    // Initialize audio
+    function initAudio() {
+      try {
+        if (window.AudioContext || window.webkitAudioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          
+          // Create a simple test tone to verify audio works
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          gainNode.gain.value = 0.001; // Very quiet test
+          oscillator.frequency.value = 440;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.01);
+          
+          isAudioInitialized = true;
+          audioStatus.textContent = "Audio: Siap";
+          setTimeout(() => {
+            audioStatus.classList.remove('show');
+          }, 2000);
+          
+          console.log("Audio initialized successfully");
+        } else {
+          audioStatus.textContent = "Audio: Tidak didukung";
+          setTimeout(() => {
+            audioStatus.classList.remove('show');
+          }, 2000);
+        }
+      } catch (error) {
+        console.log("Audio initialization error:", error);
+        audioStatus.textContent = "Audio: Error";
+        setTimeout(() => {
+          audioStatus.classList.remove('show');
+        }, 2000);
+      }
+    }
+    
+    // Show audio status
+    audioStatus.classList.add('show');
+    
+    // Play sound function
+    function playSound(type = 'number', frequency = 600, duration = 0.1, volume = 0.2) {
+      if (!isAudioInitialized) {
+        initAudio();
+        if (!isAudioInitialized) return;
+      }
+      
+      try {
+        // Resume audio context if suspended
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Set parameters based on sound type
+        switch(type) {
+          case 'number':
+            frequency = 600 + Math.random() * 100;
+            volume = 0.15;
+            break;
+          case 'delete':
+            frequency = 400;
+            volume = 0.25;
+            duration = 0.08;
+            break;
+          case 'function':
+            frequency = 1000;
+            volume = 0.2;
+            break;
+          case 'print':
+            frequency = 1200;
+            duration = 0.15;
+            volume = 0.25;
+            break;
+          case 'success':
+            frequency = 800;
+            duration = 0.25;
+            volume = 0.25;
+            break;
+          case 'error':
+            frequency = 300;
+            duration = 0.15;
+            volume = 0.25;
+            break;
+          case 'connect':
+            frequency = 700;
+            duration = 0.18;
+            volume = 0.22;
+            break;
+          case 'notification':
+            frequency = 1200;
+            duration = 0.15;
+            volume = 0.2;
+            break;
+          case 'mode':
+            frequency = 900;
+            volume = 0.2;
+            duration = 0.12;
+            break;
+        }
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        
+        // Set envelope for smooth sound
+        const now = audioContext.currentTime;
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(volume, now + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        
+        oscillator.start(now);
+        oscillator.stop(now + duration);
+        
+        // Cleanup
+        oscillator.onended = () => {
+          oscillator.disconnect();
+          gainNode.disconnect();
+        };
+      } catch (error) {
+        console.log("Sound error:", error);
+      }
+    }
+    
+    // Play click sound
+    function playClickSound() {
+      playSound('number');
+    }
+
+    // Global variables
+    let currentInputMode = 'id';
+    let kodeValue = '';
+    let beratValue = '';
+    let port = null;
+    let writer = null;
+    let generated = false;
+    let qrCodeInstance = null;
+    
+    // Initialize audio on first user interaction
+    document.addEventListener('click', function initAudioOnInteraction() {
+      if (!isAudioInitialized) {
+        initAudio();
+      }
+      document.removeEventListener('click', initAudioOnInteraction);
+    }, { once: true });
+    
+    // Button ripple effect
+    function createRipple(event) {
+      const button = event.currentTarget;
+      const circle = document.createElement("span");
+      const diameter = Math.max(button.clientWidth, button.clientHeight);
+      const radius = diameter / 2;
+      
+      circle.style.width = circle.style.height = `${diameter}px`;
+      circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+      circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
+      circle.classList.add("ripple");
+      
+      const ripple = button.getElementsByClassName("ripple")[0];
+      
+      if (ripple) {
+        ripple.remove();
+      }
+      
+      button.appendChild(circle);
+    }
+    
+    // Button press animation
+    function animateButtonPress(button) {
+      button.classList.add('active');
+      setTimeout(() => {
+        button.classList.remove('active');
+      }, 150);
+    }
+    
+    // Input handling functions
+    function setInputMode(mode) {
+      currentInputMode = mode;
+      document.getElementById('id-btn').classList.toggle('active-mode', mode === 'id');
+      document.getElementById('weight-btn').classList.toggle('active-mode', mode === 'weight');
+    }
+    
+    function appendNumber(num) {
+      if (currentInputMode === 'id') {
+        if (num === ',' || num === '.') return; // abaikan koma/titik di ID
+        if (kodeValue.length < 12) {
+          if (num === '00') {
+            if (kodeValue.length <= 10) kodeValue += '00';
+          } else {
+            kodeValue += num;
+          }
+        }
+      } else if (currentInputMode === 'weight') {
+        // Untuk berat, kita hanya terima angka (titik akan ditangani di appendDecimal)
+        if (num === ',' || num === '.') return;
+        if (beratValue.length < 10) {
+          if (num === '00') {
+            if (beratValue.length <= 8) beratValue += '00';
+          } else {
+            beratValue += num;
+          }
+        }
+      }
+      updateDisplay();
+    }
+    
+    function appendDecimal() {
+      if (currentInputMode === 'weight') {
+        // Hanya izinkan satu titik desimal
+        if (!beratValue.includes('.') && beratValue.length < 9) {
+          // Jika beratValue kosong, tambahkan "0." 
+          if (beratValue === '' || beratValue === '0') {
+            beratValue = '0.';
+          } else {
+            beratValue += '.';
+          }
+        }
+      }
+      updateDisplay();
+    }
+    
+    function backspace() {
+      if (currentInputMode === 'id' && kodeValue.length > 0) {
+        kodeValue = kodeValue.slice(0, -1);
+      } else if (currentInputMode === 'weight' && beratValue.length > 0) {
+        beratValue = beratValue.slice(0, -1);
+      }
+      updateDisplay();
+    }
+    
+    function clearInput() {
+      kodeValue = '';
+      beratValue = '';
+      generated = false;
+      if (qrCodeInstance) {
+        qrCodeInstance.clear();
+      }
+      document.getElementById('qr-weight').innerHTML = '';
+      updateDisplay();
+    }
+    
+    function updateDisplay() {
+      document.getElementById('current-id').textContent = kodeValue || '000000';
+      document.getElementById('current-weight').textContent = beratValue || '0';
+    }
+    
+    function formatBeratValue(berat) {
+      // Format berat untuk ditampilkan: pastikan format desimal yang benar
+      if (berat === '' || berat === '0') return '0';
+      
+      // Jika berakhir dengan titik, biarkan (misal: "12." berarti masih input)
+      if (berat.endsWith('.')) return berat;
+      
+      // Hilangkan nol yang tidak perlu di belakang koma
+      if (berat.includes('.')) {
+        let parts = berat.split('.');
+        if (parts[1] === '0' || parts[1] === '00' || parts[1] === '000') {
+          return parts[0]; // Hanya tampilkan angka bulat jika desimal .0
+        }
+      }
+      
+      return berat;
+    }
+    
+    function validateBerat(berat) {
+      // Validasi input berat
+      if (!berat.trim()) return false;
+      
+      // Pastikan hanya angka dan satu titik desimal
+      const regex = /^\d*\.?\d*$/;
+      if (!regex.test(berat)) return false;
+      
+      // Tidak boleh dimulai dengan titik
+      if (berat.startsWith('.')) return false;
+      
+      return true;
+    }
+    
+    function generate() {
+      if (!kodeValue.trim()) {
+        showNotification('Kode tidak boleh kosong');
+        return;
+      }
+
+      // Generate barcode KODE
+      try {
+        JsBarcode("#svg-id", kodeValue, {
+          format: "CODE128",
+          displayValue: false,
+          height: 40,
+          margin: 2,
+          fontSize: 0
+        });
+      } catch (e) {
+        showNotification('Kode tidak valid');
+        return;
+      }
+
+      // Validasi dan format berat
+      if (!validateBerat(beratValue)) {
+        showNotification('Berat tidak valid. Gunakan format angka (contoh: 12.5)');
+        return;
+      }
+      
+      // Format berat untuk ditampilkan
+      const formattedBerat = formatBeratValue(beratValue);
+      const displayBerat = formattedBerat === '0' ? '0' : formattedBerat;
+      
+      // Jika berat kosong atau hanya "0", minta input
+      if (beratValue === '' || beratValue === '0') {
+        showNotification('Masukkan berat yang valid');
+        return;
+      }
+
+      // Generate QR Code untuk BERAT
+      const qrContainer = document.getElementById('qr-weight');
+      qrContainer.innerHTML = '';
+      
+      if (qrCodeInstance) {
+        qrCodeInstance.clear();
+      }
+      
+      // Gunakan nilai asli untuk QR Code (dengan titik)
+      qrCodeInstance = new QRCode(qrContainer, {
+        text: beratValue,
+        width: 100,
+        height: 100,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+      generated = true;
+      showNotification('Barcode & QR Code berhasil digenerate');
+    }
+    
+    // Fungsi untuk membuat perintah QR Code ESC/POS
+    function generateQRCodeCommand(data) {
+      // Pastikan data dalam format string
+      data = String(data);
+      
+      // Perintah ESC/POS untuk QR Code
+      const GS = 0x1D; // Group Separator
+      
+      // 1. Set QR Code model (Model 2 - paling umum)
+      let cmd = [GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00];
+      
+      // 2. Set QR Code size (ukuran modul 6-8 biasanya bagus)
+      cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06]);
+      
+      // 3. Set error correction level (H = 30%)
+      cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x48]);
+      
+      // 4. Simpan data QR Code
+      const dataLength = data.length + 3;
+      const pL = dataLength % 256;
+      const pH = Math.floor(dataLength / 256);
+      
+      cmd = cmd.concat([GS, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30]);
+      
+      // Tambahkan data sebagai bytes
+      const encoder = new TextEncoder();
+      const dataBytes = encoder.encode(data);
+      cmd = cmd.concat(Array.from(dataBytes));
+      
+      // 5. Print QR Code
+      cmd = cmd.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]);
+      
+      return new Uint8Array(cmd);
+    }
+    
+    // Fungsi untuk membuat perintah barcode ESC/POS
+    function generateBarcodeCommand(data) {
+      // Pastikan data dalam format string
+      data = String(data);
+      
+      // Perintah untuk barcode CODE128
+      const GS = 0x1D;
+      let cmd = [];
+      
+      // Set barcode height
+      cmd.push(GS, 0x68, 0x50); // height = 80 dots
+      
+      // Set barcode width
+      cmd.push(GS, 0x77, 0x02); // width = 2
+      
+      // Print barcode CODE128
+      cmd.push(GS, 0x6B, 0x49); // CODE128
+      cmd.push(data.length); // panjang data
+      
+      // Tambahkan data sebagai bytes
+      const encoder = new TextEncoder();
+      const dataBytes = encoder.encode(data);
+      cmd = cmd.concat(Array.from(dataBytes));
+      
+      return new Uint8Array(cmd);
+    }
+    
+    async function connectToPrinter() {
+      try {
+        if (!("serial" in navigator)) {
+          showNotification("Browser tidak mendukung Web Serial API. Gunakan Chrome/Edge.");
+          return false;
+        }
+
+        showNotification("Memilih printer...");
+        port = await navigator.serial.requestPort();
+        showNotification("Membuka koneksi...");
+        await port.open({ baudRate: 9600 });
+        writer = port.writable.getWriter();
+        updateConnectionStatus(true);
+        showNotification('Printer berhasil terhubung!');
+        return true;
+      } catch (error) {
+        console.error("Connection error:", error);
+        if (error.name === 'NotFoundError') {
+          showNotification("Tidak ada printer yang dipilih");
+        } else {
+          showNotification("Gagal terhubung: " + error.message);
+        }
+        updateConnectionStatus(false);
+        return false;
+      }
+    }
+    
+    async function printBarcode() {
+      if (!generated) {
+        showNotification('Harap klik GENERATE dulu');
+        return;
+      }
+      if (!writer) {
+        showNotification('Printer belum terhubung. Klik CONNECT.');
+        return;
+      }
+
+      try {
+        showNotification("Mengirim ke printer...");
+
+        // Inisialisasi printer
+        const encoder = new TextEncoder();
+        let commands = [];
+        
+        // Reset printer
+        commands.push(0x1B, 0x40); // ESC @
+        
+        // Set alignment center
+        commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
+        
+        // Format berat untuk ditampilkan
+        const displayBerat = formatBeratValue(beratValue);
+        
+        // Baris 1: [Kode Produk][berat produk]
+        const produkText = encoder.encode("[" + kodeValue + "][" + displayBerat + "]\n");
+        commands = commands.concat(Array.from(produkText));
+        
+        // Feed lines
+        commands.push(0x0A); // \n
+        
+        // Baris 2: [Barcode]
+        // Set alignment center untuk barcode
+        commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
+        
+        // Cetak barcode KODE
+        const barcodeCmd = generateBarcodeCommand(kodeValue);
+        commands = commands.concat(Array.from(barcodeCmd));
+        
+        // Feed lines setelah barcode
+        commands.push(0x0A); // \n
+        
+        // Baris 3: [QR Code]
+        // Cetak QR Code untuk BERAT
+        const qrCmd = generateQRCodeCommand(beratValue);
+        commands = commands.concat(Array.from(qrCmd));
+        
+        // Feed lines setelah QR Code
+        commands.push(0x0A, 0x0A); // \n \n
+        
+        // Potong kertas (full cut)
+        commands.push(0x1D, 0x56, 0x41, 0x00); // GS V 41 0
+        
+        // Kirim semua perintah ke printer
+        await writer.write(new Uint8Array(commands));
+        
+        showNotification('Berhasil dicetak!');
+      } catch (error) {
+        console.error("Print error:", error);
+        showNotification("Gagal cetak: " + error.message);
+        
+        // Coba alternatif format QR Code jika gagal
+        if (error.message.includes("not supported") || error.message.includes("invalid")) {
+          showNotification("Mencoba format alternatif...");
+          await tryAlternativePrint();
+        }
+      }
+    }
+    
+    // Alternatif format QR Code jika yang pertama gagal
+    async function tryAlternativePrint() {
+      try {
+        const encoder = new TextEncoder();
+        let commands = [];
+        
+        // Reset printer
+        commands.push(0x1B, 0x40);
+        
+        // Set alignment center
+        commands.push(0x1B, 0x61, 0x01); // center
+        
+        // Format berat untuk ditampilkan
+        const displayBerat = formatBeratValue(beratValue);
+        
+        // Baris 1: [Kode Produk][berat produk]
+        const produkText = encoder.encode("[" + kodeValue + "][" + displayBerat + "]\n\n");
+        commands = commands.concat(Array.from(produkText));
+        
+        // Alternatif: Perintah yang lebih sederhana untuk QR Code
+        const GS = 0x1D;
+        
+        // Set alignment center untuk barcode
+        commands.push(0x1B, 0x61, 0x01); // center
+        
+        // Cetak barcode
+        const barcodeCmd = generateBarcodeCommand(kodeValue);
+        commands = commands.concat(Array.from(barcodeCmd));
+        
+        // Feed lines
+        commands.push(0x0A); // \n
+        
+        // Alternatif QR Code
+        commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08]); // size
+        commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x33]); // error correction
+        
+        // Store data
+        const dataLength = beratValue.length + 3;
+        const pL = dataLength % 256;
+        const pH = Math.floor(dataLength / 256);
+        commands = commands.concat([GS, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30]);
+        
+        // Data
+        const dataBytes = encoder.encode(beratValue);
+        commands = commands.concat(Array.from(dataBytes));
+        
+        // Print
+        commands = commands.concat([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]);
+        
+        // Feed dan cut
+        commands.push(0x0A, 0x0A);
+        commands.push(0x1D, 0x56, 0x41, 0x00);
+        
+        await writer.write(new Uint8Array(commands));
+        showNotification('Berhasil dicetak dengan format alternatif!');
+      } catch (error2) {
+        console.error("Alternative print error:", error2);
+        showNotification("Printer mungkin tidak mendukung QR Code. Ganti ke barcode?");
+      }
+    }
+    
+    function updateConnectionStatus(connected) {
+      const status = document.getElementById('status');
+      status.className = connected ? 'status-connected' : 'status-disconnected';
+      status.textContent = connected ? 'Printer: Terkoneksi' : 'Printer: Tidak Terkoneksi';
+    }
+    
+    function showNotification(message, duration = 3000) {
+      const n = document.getElementById('notification');
+      n.textContent = message;
+      n.style.display = 'block';
+      setTimeout(() => n.style.display = 'none', duration);
+    }
+    
+    // Fungsi untuk menangani input keyboard
+    function handleKeyPress(event) {
+      const key = event.key;
+      
+      // Putar suara saat tombol keyboard ditekan
+      playSound('number');
+      
+      // Jika angka ditekan
+      if (key >= '0' && key <= '9') {
+        appendNumber(key);
+      }
+      // Jika titik atau koma ditekan (untuk berat)
+      else if (key === '.' || key === ',') {
+        if (currentInputMode === 'weight') {
+          event.preventDefault();
+          appendDecimal();
+        }
+      }
+      // Jika backspace ditekan
+      else if (key === 'Backspace') {
+        event.preventDefault();
+        backspace();
+      }
+      // Jika enter ditekan
+      else if (key === 'Enter') {
+        event.preventDefault();
+        generate();
+      }
+    }
+    
+    // Set up event listeners for buttons
+    function setupButtonListeners() {
+      // KODE button
+      document.getElementById('id-btn').addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('mode');
+        setInputMode('id');
+      });
+      
+      // BERAT button
+      document.getElementById('weight-btn').addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('mode');
+        setInputMode('weight');
+      });
+      
+      // Backspace button
+      document.querySelector('.backspace-btn').addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('delete');
+        backspace();
+      });
+      
+      // CLEAR button
+      document.querySelectorAll('.function-row')[1].children[0].addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('delete');
+        clearInput();
+      });
+      
+      // GENERATE button
+      document.querySelectorAll('.function-row')[1].children[1].addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('function');
+        generate();
+      });
+      
+      // CONNECT button
+      document.querySelectorAll('.function-row')[1].children[2].addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('connect');
+        connectToPrinter();
+      });
+      
+      // Number buttons (0-9, 00)
+      const numberButtons = document.querySelectorAll('.buttons button:not(.decimal-btn):not(.print-btn)');
+      numberButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          createRipple(e);
+          animateButtonPress(this);
+          playSound('number');
+          const value = this.textContent;
+          appendNumber(value);
+        });
+      });
+      
+      // Decimal button
+      document.querySelector('.decimal-btn').addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('number');
+        appendDecimal();
+      });
+      
+      // PRINT button
+      document.querySelector('.print-btn').addEventListener('click', function(e) {
+        createRipple(e);
+        animateButtonPress(this);
+        playSound('print');
+        printBarcode();
+      });
+      
+      // Touch events for mobile
+      const allButtons = document.querySelectorAll('button');
+      allButtons.forEach(button => {
+        button.addEventListener('touchstart', function(e) {
+          // Prevent default to avoid double-tap zoom
+          e.preventDefault();
+          createRipple(e);
+          animateButtonPress(this);
+          
+          // Play sound based on button type
+          if (this.classList.contains('backspace-btn')) {
+            playSound('delete');
+          } else if (this.classList.contains('print-btn')) {
+            playSound('print');
+          } else if (this.classList.contains('function-btn') && 
+                     !this.classList.contains('active-mode') && 
+                     this.id !== 'id-btn' && 
+                     this.id !== 'weight-btn') {
+            playSound('function');
+          } else if (this.id === 'id-btn' || this.id === 'weight-btn') {
+            playSound('mode');
+          } else if (this.classList.contains('decimal-btn')) {
+            playSound('number');
+          } else if (this.textContent.match(/^[0-9]{1,2}$/)) {
+            playSound('number');
+          }
+        }, { passive: false });
+        
+        button.addEventListener('touchend', function(e) {
+          // Trigger the click event
+          this.click();
+        });
+      });
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      updateDisplay();
+      
+      // Setup button event listeners
+      setupButtonListeners();
+      
+      // Inisialisasi audio saat halaman dimuat
+      initAudio();
+      
+      // Tambahkan event listener untuk keyboard
+      document.addEventListener('keydown', handleKeyPress);
+      
+      if (!("serial" in navigator)) {
+        document.getElementById('status').textContent = 'Browser tidak mendukung Web Serial API';
+      }
+    });
+  </script>
+</body>
+</html>
