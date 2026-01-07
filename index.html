@@ -207,23 +207,6 @@
     .audio-status.show {
       opacity: 1;
     }
-    
-    /* Ripple effect for buttons */
-    .ripple {
-      position: absolute;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.6);
-      transform: scale(0);
-      animation: ripple-animation 0.6s linear;
-      pointer-events: none;
-    }
-    
-    @keyframes ripple-animation {
-      to {
-        transform: scale(4);
-        opacity: 0;
-      }
-    }
   </style>
 </head>
 <body>
@@ -294,25 +277,11 @@
       try {
         if (window.AudioContext || window.webkitAudioContext) {
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          
-          // Create a simple test tone to verify audio works
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          
-          gainNode.gain.value = 0.001; // Very quiet test
-          oscillator.frequency.value = 440;
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.01);
-          
           isAudioInitialized = true;
           audioStatus.textContent = "Audio: Siap";
           setTimeout(() => {
             audioStatus.classList.remove('show');
           }, 2000);
-          
           console.log("Audio initialized successfully");
         } else {
           audioStatus.textContent = "Audio: Tidak didukung";
@@ -332,8 +301,8 @@
     // Show audio status
     audioStatus.classList.add('show');
     
-    // Play sound function
-    function playSound(type = 'number', frequency = 600, duration = 0.1, volume = 0.2) {
+    // Play simple TIT sound
+    function playTitSound() {
       if (!isAudioInitialized) {
         initAudio();
         if (!isAudioInitialized) return;
@@ -351,58 +320,15 @@
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         
-        // Set parameters based on sound type
-        switch(type) {
-          case 'number':
-            frequency = 600 + Math.random() * 100;
-            volume = 0.15;
-            break;
-          case 'delete':
-            frequency = 400;
-            volume = 0.25;
-            duration = 0.08;
-            break;
-          case 'function':
-            frequency = 1000;
-            volume = 0.2;
-            break;
-          case 'print':
-            frequency = 1200;
-            duration = 0.15;
-            volume = 0.25;
-            break;
-          case 'success':
-            frequency = 800;
-            duration = 0.25;
-            volume = 0.25;
-            break;
-          case 'error':
-            frequency = 300;
-            duration = 0.15;
-            volume = 0.25;
-            break;
-          case 'connect':
-            frequency = 700;
-            duration = 0.18;
-            volume = 0.22;
-            break;
-          case 'notification':
-            frequency = 1200;
-            duration = 0.15;
-            volume = 0.2;
-            break;
-          case 'mode':
-            frequency = 900;
-            volume = 0.2;
-            duration = 0.12;
-            break;
-        }
-        
+        // Simple TIT sound
         oscillator.type = 'sine';
-        oscillator.frequency.value = frequency;
+        oscillator.frequency.value = 800; // Fixed frequency for TIT sound
         
-        // Set envelope for smooth sound
+        // Set envelope for short TIT sound
         const now = audioContext.currentTime;
+        const duration = 0.08; // Very short duration for TIT
+        const volume = 0.45; // Good volume level
+        
         gainNode.gain.setValueAtTime(0, now);
         gainNode.gain.linearRampToValueAtTime(volume, now + 0.01);
         gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
@@ -418,11 +344,6 @@
       } catch (error) {
         console.log("Sound error:", error);
       }
-    }
-    
-    // Play click sound
-    function playClickSound() {
-      playSound('number');
     }
 
     // Global variables
@@ -441,27 +362,6 @@
       }
       document.removeEventListener('click', initAudioOnInteraction);
     }, { once: true });
-    
-    // Button ripple effect
-    function createRipple(event) {
-      const button = event.currentTarget;
-      const circle = document.createElement("span");
-      const diameter = Math.max(button.clientWidth, button.clientHeight);
-      const radius = diameter / 2;
-      
-      circle.style.width = circle.style.height = `${diameter}px`;
-      circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
-      circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
-      circle.classList.add("ripple");
-      
-      const ripple = button.getElementsByClassName("ripple")[0];
-      
-      if (ripple) {
-        ripple.remove();
-      }
-      
-      button.appendChild(circle);
-    }
     
     // Button press animation
     function animateButtonPress(button) {
@@ -871,7 +771,7 @@
       const key = event.key;
       
       // Putar suara saat tombol keyboard ditekan
-      playSound('number');
+      playTitSound();
       
       // Jika angka ditekan
       if (key >= '0' && key <= '9') {
@@ -899,78 +799,69 @@
     // Set up event listeners for buttons
     function setupButtonListeners() {
       // KODE button
-      document.getElementById('id-btn').addEventListener('click', function(e) {
-        createRipple(e);
+      document.getElementById('id-btn').addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('mode');
+        playTitSound();
         setInputMode('id');
       });
       
       // BERAT button
-      document.getElementById('weight-btn').addEventListener('click', function(e) {
-        createRipple(e);
+      document.getElementById('weight-btn').addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('mode');
+        playTitSound();
         setInputMode('weight');
       });
       
       // Backspace button
-      document.querySelector('.backspace-btn').addEventListener('click', function(e) {
-        createRipple(e);
+      document.querySelector('.backspace-btn').addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('delete');
+        playTitSound();
         backspace();
       });
       
       // CLEAR button
-      document.querySelectorAll('.function-row')[1].children[0].addEventListener('click', function(e) {
-        createRipple(e);
+      document.querySelectorAll('.function-row')[1].children[0].addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('delete');
+        playTitSound();
         clearInput();
       });
       
       // GENERATE button
-      document.querySelectorAll('.function-row')[1].children[1].addEventListener('click', function(e) {
-        createRipple(e);
+      document.querySelectorAll('.function-row')[1].children[1].addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('function');
+        playTitSound();
         generate();
       });
       
       // CONNECT button
-      document.querySelectorAll('.function-row')[1].children[2].addEventListener('click', function(e) {
-        createRipple(e);
+      document.querySelectorAll('.function-row')[1].children[2].addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('connect');
+        playTitSound();
         connectToPrinter();
       });
       
       // Number buttons (0-9, 00)
       const numberButtons = document.querySelectorAll('.buttons button:not(.decimal-btn):not(.print-btn)');
       numberButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-          createRipple(e);
+        button.addEventListener('click', function() {
           animateButtonPress(this);
-          playSound('number');
+          playTitSound();
           const value = this.textContent;
           appendNumber(value);
         });
       });
       
       // Decimal button
-      document.querySelector('.decimal-btn').addEventListener('click', function(e) {
-        createRipple(e);
+      document.querySelector('.decimal-btn').addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('number');
+        playTitSound();
         appendDecimal();
       });
       
       // PRINT button
-      document.querySelector('.print-btn').addEventListener('click', function(e) {
-        createRipple(e);
+      document.querySelector('.print-btn').addEventListener('click', function() {
         animateButtonPress(this);
-        playSound('print');
+        playTitSound();
         printBarcode();
       });
       
@@ -980,26 +871,8 @@
         button.addEventListener('touchstart', function(e) {
           // Prevent default to avoid double-tap zoom
           e.preventDefault();
-          createRipple(e);
           animateButtonPress(this);
-          
-          // Play sound based on button type
-          if (this.classList.contains('backspace-btn')) {
-            playSound('delete');
-          } else if (this.classList.contains('print-btn')) {
-            playSound('print');
-          } else if (this.classList.contains('function-btn') && 
-                     !this.classList.contains('active-mode') && 
-                     this.id !== 'id-btn' && 
-                     this.id !== 'weight-btn') {
-            playSound('function');
-          } else if (this.id === 'id-btn' || this.id === 'weight-btn') {
-            playSound('mode');
-          } else if (this.classList.contains('decimal-btn')) {
-            playSound('number');
-          } else if (this.textContent.match(/^[0-9]{1,2}$/)) {
-            playSound('number');
-          }
+          playTitSound();
         }, { passive: false });
         
         button.addEventListener('touchend', function(e) {
