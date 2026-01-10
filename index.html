@@ -577,7 +577,7 @@
       return new Uint8Array(cmd);
     }
     
-    // Fungsi untuk membuat perintah barcode ESC/POS
+    // Fungsi untuk membuat perintah barcode ESC/POS - DIPERBAIKI
     function generateBarcodeCommand(data) {
       // Pastikan data dalam format string
       data = String(data);
@@ -586,7 +586,7 @@
       const GS = 0x1D;
       let cmd = [];
       
-      // Set barcode height
+      // Set barcode height (80 dots)
       cmd.push(GS, 0x68, 0x50); // height = 80 dots
       
       // Set barcode width
@@ -670,10 +670,9 @@
         // Set alignment center untuk barcode
         commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
         
-        // Cetak barcode KODE
+        // Cetak barcode KODE - DIPERBAIKI
         const barcodeCmd = generateBarcodeCommand(kodeValue);
-        const barcodeBytes = encoder.encode(barcodeCmd);
-        commands = commands.concat(Array.from(barcodeBytes));
+        commands = commands.concat(Array.from(barcodeCmd));
         
         // Feed lines setelah barcode
         commands.push(0x0A); // \n
@@ -730,7 +729,7 @@
         // Set alignment center untuk barcode
         commands.push(0x1B, 0x61, 0x01); // center
         
-        // Cetak barcode
+        // Cetak barcode - DIPERBAIKI
         const barcodeCmd = generateBarcodeCommand(kodeValue);
         commands = commands.concat(Array.from(barcodeCmd));
         
