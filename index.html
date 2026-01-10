@@ -327,7 +327,7 @@
         // Set envelope for short TIT sound
         const now = audioContext.currentTime;
         const duration = 0.08; // Very short duration for TIT
-        const volume = 0.45; // Good volume level
+        const volume = 0.25; // Good volume level
         
         gainNode.gain.setValueAtTime(0, now);
         gainNode.gain.linearRampToValueAtTime(volume, now + 0.01);
@@ -427,6 +427,7 @@
     }
     
     function clearInput() {
+      // Reset kolom KODE dan BERAT
       kodeValue = '';
       beratValue = '';
       generated = false;
@@ -435,8 +436,12 @@
       }
       document.getElementById('qr-weight').innerHTML = '';
       document.getElementById('svg-id').innerHTML = ''; // Bersihkan barcode
+      
+      // Kembali ke mode KODE
+      setInputMode('id');
+      
       updateDisplay();
-      showNotification('Input telah direset');
+      showNotification('Kolom KODE dan BERAT telah direset, kembali ke mode KODE');
     }
     
     function updateDisplay() {
@@ -533,15 +538,8 @@
       generated = true;
       showNotification('Barcode & QR Code berhasil digenerate');
       
-      // RESET: Kembalikan display ke keadaan netral (nol)
-      kodeValue = '';
-      beratValue = '';
-      
-      // RESET: Kembalikan tombol function ke mode KODE
-      setInputMode('id');
-      
-      // Update display untuk menampilkan nilai netral
-      updateDisplay();
+      // TIDAK ADA RESET OTOMATIS - data tetap disimpan untuk print
+      // Biarkan user yang mereset manual dengan CLEAR
     }
     
     // Fungsi untuk membuat perintah QR Code ESC/POS
@@ -634,10 +632,12 @@
     }
     
     async function printBarcode() {
+      // Pastikan sudah generate barcode dan QR code
       if (!generated) {
         showNotification('Harap klik GENERATE dulu');
         return;
       }
+      
       if (!writer) {
         showNotification('Printer belum terhubung. Klik CONNECT.');
         return;
@@ -656,108 +656,52 @@
         // Set alignment center
         commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
         
-        // Ambil nilai yang sudah digenerate dari preview
-        // Kita perlu mendapatkan kode dan berat dari preview
-        // Karena setelah generate, kodeValue dan beratValue sudah direset
+        // Format berat untuk ditampilkan
+        const displayBerat = formatBeratValue(beratValue);
         
-        // Untuk kode, kita bisa ambil dari teks barcode yang sudah digenerate
-        const barcodeSvg = document.getElementById('svg-id');
-        let generatedKode = '';
+        // Baris 1: [Kode Produk][berat produk]
+        const produkText = encoder.encode("[" + kodeValue + "][" + displayBerat + "]\n");
+        commands = commands.concat(Array.from(produkText));
         
-        // Coba ambil kode dari barcode yang sudah digenerate
-        // Ini adalah cara sederhana, asumsi barcode sudah ada
-        if (barcodeSvg && barcodeSvg.querySelector('text')) {
-          generatedKode = barcodeSvg.querySelector('text').textContent;
-        }
+        // Feed lines
+        commands.push(0x0A); // \n
         
-        // Untuk berat, kita bisa ambil dari QR code yang sudah digenerate
-        // Ini lebih sulit, jadi kita simpan nilai berat terakhir di variabel global
-        // Kita perlu modifikasi untuk menyimpan nilai yang sudah digenerate
-        // Untuk sekarang, kita akan gunakan berat yang ada di variabel beratValue
-        // Tapi setelah generate, beratValue sudah direset, jadi kita perlu simpan nilai sebelumnya
+        // Baris 2: [Barcode]
+        // Set alignment center untuk barcode
+        commands.push(0x1B, 0x61, 0x01); // ESC a 1 (center)
         
-        // Karena itu, kita perlu modifikasi: simpan nilai yang sudah digenerate
-        // Kita buat variabel baru untuk menyimpan nilai yang sudah digenerate
-        // TAPI untuk kesederhanaan, kita akan minta user untuk generate dulu
+        // Cetak barcode KODE
+        const barcodeCmd = generateBarcodeCommand(kodeValue);
+        const barcodeBytes = encoder.encode(barcodeCmd);
+        commands = commands.concat(Array.from(barcodeBytes));
         
-        // Karena kita sudah reset setelah generate, maka kita tidak bisa print
-        // Jadi kita perlu mengubah logika: jangan reset saat generate, atau simpan nilai
+        // Feed lines setelah barcode
+        commands.push(0x0A); // \n
         
-        // Solusi: Simpan nilai yang sudah digenerate di variabel terpisah
-        let lastGeneratedKode = '';
-        let lastGeneratedBerat = '';
+        // Baris 3: [QR Code]
+        // Cetak QR Code untuk BERAT
+        const qrCmd = generateQRCodeCommand(beratValue);
+        commands = commands.concat(Array.from(qrCmd));
         
-        // Di fungsi generate(), simpan nilai sebelum direset
-        // Tapi lebih baik kita ubah: tidak reset kodeValue dan beratValue saat generate
-        // Kecuali kita simpan di variabel lain
+        // Feed lines setelah QR Code
+        commands.push(0x0A, 0x0A); // \n \n
         
-        // Karena ini kompleks, mari kita sederhanakan:
-        // Setelah generate, kita TIDAK reset kodeValue dan beratValue
-        // Tapi kita tetap reset display dan tombol
+        // Potong kertas (full cut)
+        commands.push(0x1D, 0x56, 0x41, 0x00); // GS V 41 0
         
-        // Ubah: di fungsi generate(), JANGAN reset kodeValue dan beratValue
-        // Hanya reset display dan tombol
+        // Kirim semua perintah ke printer
+        await writer.write(new Uint8Array(commands));
         
-        // Tapi kita sudah ubah di atas, jadi kita perlu mengembalikan
-        
-        // Sebenarnya, untuk print kita perlu data yang sama dengan yang digenerate
-        // Jadi kita simpan nilai yang digunakan saat generate
-        // Kita buat variabel untuk menyimpan data yang digenerate
-        
-        // TAPI karena waktu terbatas, mari kita buat solusi sederhana:
-        // Saat print, ambil data dari preview jika ada
-        
-        // Untuk sekarang, kita asumsikan user baru saja generate
-        // dan data masih ada di preview
-        
-        // Kita perlu mendapatkan berat dari QR code yang sudah digenerate
-        // Ini sulit karena QR code adalah gambar
-        
-        // Solusi alternatif: Jangan reset kodeValue dan beratValue di generate()
-        // Tapi reset display saja dengan placeholder
-        
-        // Mari kita ubah pendekatan:
-        // Di fungsi generate(), kita SIMPAN nilai ke variabel baru
-        // Lalu reset input untuk persiapan input baru
-        
-        // Karena ini butuh perubahan besar, untuk sekarang kita akan:
-        // 1. Saat generate, simpan nilai ke variabel global untuk print
-        // 2. Reset input untuk persiapan input berikutnya
-        
-        // Kita tambahkan variabel global:
-        // let generatedKodeForPrint = '';
-        // let generatedBeratForPrint = '';
-        
-        // Di fungsi generate(), simpan:
-        // generatedKodeForPrint = kodeValue;
-        // generatedBeratForPrint = beratValue;
-        
-        // Di fungsi printBarcode(), gunakan:
-        // generatedKodeForPrint dan generatedBeratForPrint
-        
-        // Tapi kita sudah punya variabel 'generated' yang menandai sudah generate
-        // Kita perlu tahu nilai apa yang digenerate
-        
-        // Karena waktu, mari kita sederhanakan dengan tidak mereset kodeValue dan beratValue saat generate
-        // Sebagai gantinya, kita hanya mereset tampilan dan tombol
-        
-        // Kembalikan perubahan di fungsi generate():
-        // Hapus bagian reset kodeValue dan beratValue
-        // Hanya reset display dan tombol
-        
-        // Tapi permintaan: "tampilan displai kode dan berat kembali netral (nol)"
-        // Jadi kita perlu reset display, tapi tidak reset data untuk print
-        
-        // Solusi: reset display dengan placeholder, tapi simpan data untuk print
-        
-        // Kita akan simpan data yang digenerate sebelum reset
-        
-        showNotification('Fitur print membutuhkan data yang valid. Pastikan sudah generate.');
-        return;
-        
+        showNotification('Berhasil dicetak!');
       } catch (error) {
         console.error("Print error:", error);
         showNotification("Gagal cetak: " + error.message);
+        
+        // Coba alternatif format QR Code jika gagal
+        if (error.message.includes("not supported") || error.message.includes("invalid")) {
+          showNotification("Mencoba format alternatif...");
+          await tryAlternativePrint();
+        }
       }
     }
     
